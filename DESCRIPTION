@@ -7,5 +7,14 @@ Author: Who wrote it
 Maintainer: Who to complain to <yourfault@somewhere.net>
 Description: More about what it does (maybe more than one line)
 License: What license is it under?
-Imports: Rcpp (>= 1.0.7)
-LinkingTo: Rcpp, RcppArmadillo
+Imports: 
+    bigmemory,
+    cluster,
+    doParallel,
+    foreach,
+    igraph,
+    Rcpp (>= 1.0.7),
+    Seurat,
+    uwot
+LinkingTo: Rcpp, RcppArmadillo, bigmemory, BH
+RoxygenNote: 7.1.1

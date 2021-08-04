@@ -1,13 +1,10 @@
-library(Seurat)
-library(parallel)
-library(bigmemory)
-library(doParallel)
-library(foreach)
+#' @useDynLib moduli
+#' @importFrom Rcpp sourceCpp
+#' @import Seurat
+#' @import foreach
+#' @import doParallel
 
-source("clustering.R")
-Rcpp::sourceCpp("compute_embedding_distances.cpp")
-
-
+#' @export
 get_moduli <- function(seurat, membership = NULL, gene.clusters = NULL,
                        assay = DefaultAssay(seurat), npcs = 30, points = NULL,
                        pow = 1, n.cores = 1, downsample = 1, seed = 123, 
@@ -72,19 +69,10 @@ get_moduli <- function(seurat, membership = NULL, gene.clusters = NULL,
                           verbose = F, approx = approx))
     )
   }
-  message(paste(format(Sys.time(), "%a %b %d %X"),"Finished building embeddings"))
+  #message(paste(format(Sys.time(), "%a %b %d %X"),"Finished building embeddings"))
   
   
   message(paste(format(Sys.time(), "%a %b %d %X"), "Computing distances"))
-  
-  answ <- NULL
-  for(i in seq_along(points)){
-    emb <- attach.big.matrix(emb.descr)
-    dd <- dist_Cpp(emb@address, i, npcs, pow)
-    answ <- cbind( answ, dd)
-  }
-  message("asdadsasdasd")
-  
   metric.matrix <- foreach(i = seq_along(points),
                            .noexport = c("seurat", "gene.clusters", "points"),
                            .export = "dist_Cpp",
@@ -123,9 +111,10 @@ get_moduli <- function(seurat, membership = NULL, gene.clusters = NULL,
 }
 
 
+#' @export
 visualize_moduli <- function(moduli, clusters = NULL, title = NULL, n_neighbors = 15){
   set.seed(123)
-  umap.coords <- umap(as.dist(moduli$metric.matrix), n_neighbors = n_neighbors)
+  umap.coords <- uwot::umap(as.dist(moduli$metric.matrix), n_neighbors = n_neighbors)
   if(is.null(clusters)){
     plot(umap.coords, main = title)
   }else{
@@ -137,6 +126,7 @@ visualize_moduli <- function(moduli, clusters = NULL, title = NULL, n_neighbors 
   }
 }
 
+#' @export
 restrict_moduli <- function(moduli, clusters){
   res <- list()
   res$gene.clusters <- moduli$gene.clusters[clusters]
@@ -154,6 +144,7 @@ restrict_moduli <- function(moduli, clusters){
 
 
 
+#' @export
 get_freq_table <- function(moduli, partition){
  cluster.labels <- names(moduli$gene.clusters)
  partition.labels <- sort(unique(partition))
@@ -170,21 +161,23 @@ get_freq_table <- function(moduli, partition){
  return(freq.table)
 }
 
+#' @export
 partition_moduli <- function(moduli, k = 5, verbose = T){
   knn_moduli <- create_knn(moduli$metric.matrix, 5)
-  jaccard <- similarity(knn_moduli, method = "jaccard", loops = T)
-  jaccard.graph <- graph_from_adjacency_matrix(jaccard, mode = "undirected", weighted = T, diag = F)
+  jaccard <- igraph::similarity(knn_moduli, method = "jaccard", loops = T)
+  jaccard.graph <- igraph::graph_from_adjacency_matrix(jaccard, mode = "undirected", weighted = T, diag = F)
 
   clusters <- igraph::cluster_louvain(jaccard.graph)
   
   if(verbose){
-    print(modularity(jaccard.graph, clusters$membership, weights = E(jaccard.graph)$weight))
+    print(igraph::modularity(jaccard.graph, clusters$membership, weights = E(jaccard.graph)$weight))
     print(table(clusters$membership))
   }
   return(clusters$membership)
 }
 
 
+#' @export
 find_genes <- function(moduli, genes, ignore.case = T){
   out <- list()
   for(i in seq_along(moduli$gene.clusters)){
@@ -202,6 +195,7 @@ find_genes <- function(moduli, genes, ignore.case = T){
 }
 
 
+#' @export
 get_idents <- function(moduli, point){
   seurat <- moduli$seurat
   features <- unique(unlist(moduli$gene.clusters[point]))
@@ -214,6 +208,7 @@ get_idents <- function(moduli, point){
   return(Idents(seurat))
 }
 
+#' @export
 integrate_idents <- function(moduli){
   n.pts <- length(moduli$points)
   all_idents <- sapply(1:n.pts, function(i) get_idents(moduli, i) ) #each column is a membership
