@@ -3,12 +3,14 @@
 #' @import Seurat
 #' @import foreach
 #' @import doParallel
-
+#' @import irlba
+#' @import bigmemory
+#' 
+#' 
 #' @export
 get_moduli <- function(seurat, membership = NULL, gene.clusters = NULL,
                        assay = DefaultAssay(seurat), npcs = 30, points = NULL,
-                       pow = 1, n.cores = 1, downsample = 1, seed = 123, 
-                       save.intermediary = F){
+                       pow = 1, n.cores = 1, size = 0, ncells = 0, seed = 123){
   # gene.clusters : clusters of genes as a list of vectors of gene names
   
   if(!is.null(membership)){
@@ -27,47 +29,61 @@ get_moduli <- function(seurat, membership = NULL, gene.clusters = NULL,
   if(is.null(points)){
     for(n in 1:length(gene.clusters)){
       comb <- combn(cluster.labels, n, simplify = F)
-      comb <- comb[runif(length(comb)) <= downsample]
       points <- append(points, comb)
     }
   }
-  
+
   is.large.enougth <- vapply(
       points,
       function(set) length(unique(unlist(gene.clusters[set]))) >= npcs,
       FUN.VALUE = rep_len(T, length(comb))
   )
   points <- points[is.large.enougth]
+  if( size > 0 && length(points) > size) sample(points, size)
   n.pts <- length(points)
   
-  embeddings <- filebacked.big.matrix(
-    nrow = length(Cells(seurat))*npcs,
+  if(ncells > 0 && length(Cells(seurat)) > ncells){
+    cells <- sample(Cells(seurat), ncells) 
+  } else {
+    cells <- Cells(seurat)
+  }
+  scaled.data <- GetAssayData(seurat[[assay]], slot = "scale.data" )[,cells]
+  
+  embeddings <- bigmemory::filebacked.big.matrix(
+    nrow = length(cells)*npcs,
     ncol = length(points),
     backingfile = "embeddings.bin",
     descriptorfile = "embeddings.desc"
   )
   
-  emb.descr <- describe(embeddings)
+  emb.descr <- bigmemory::describe(embeddings)
   
-  cl <- makeCluster(n.cores)
+  cl <- parallel::makeCluster(n.cores)
+  on.exit(parallel::stopCluster(cl))
   registerDoParallel(cl)
-  clusterEvalQ( cl = cl,{
-    library(bigmemory)
-    library(Seurat)
-  })
+  
+  
+  #clusterEvalQ( cl = cl,{
+  #  library(bigmemory)
+  #  library(Seurat)
+  #})
+  
   
   message(paste(format(Sys.time(), "%a %b %d %X"),"Building embeddings"))
-  
-  foreach(i = seq_along(points))%dopar%{
+  foreach(i = seq_along(points),
+          .noexport = c("seurat"),
+          .packages = c("bigmemory", "irlba"))%dopar%{
+    feature.subset <- unique(unlist(gene.clusters[points[[i]]]))
+    if (length(feature.subset) > npcs*2){
+      pca.results <- irlba(t(scaled.data[feature.subset,]), nv = npcs)
+      cell.embeddings <- pca.results$u %*% diag(pca.results$d) #weighting by variance
+    } else {
+      pca.results <- prcomp(t(scaled.data[feature.subset,]), rank. = npcs)
+      cell.embeddings <- pca.results$x
+    }
     
     emb <- attach.big.matrix(emb.descr)
-    feature.subset <- unique(unlist(gene.clusters[points[[i]]]))
-    approx  <- (length(feature.subset) >= npcs*3)
-    
-    emb[,i] <- c(
-      Embeddings(RunPCA(seurat, assay = assay, features = feature.subset, npcs = npcs,
-                          verbose = F, approx = approx))
-    )
+    emb[,i] <- c(cell.embeddings)
   }
   #message(paste(format(Sys.time(), "%a %b %d %X"),"Finished building embeddings"))
   
@@ -75,7 +91,7 @@ get_moduli <- function(seurat, membership = NULL, gene.clusters = NULL,
   message(paste(format(Sys.time(), "%a %b %d %X"), "Computing distances"))
   metric.matrix <- foreach(i = seq_along(points),
                            .noexport = c("seurat", "gene.clusters", "points"),
-                           .export = "dist_Cpp",
+                           .packages = c("moduli"),
                            .combine =  cbind)%dopar%{
     
     emb <- attach.big.matrix(emb.descr)
@@ -93,7 +109,6 @@ get_moduli <- function(seurat, membership = NULL, gene.clusters = NULL,
     #}
     #d
   }
-  
   message(paste(format(Sys.time(), "%a %b %d %X"), "Finished computing distances"))
 
   metric.matrix <- metric.matrix + t(metric.matrix)
@@ -104,6 +119,7 @@ get_moduli <- function(seurat, membership = NULL, gene.clusters = NULL,
     metric.matrix = metric.matrix,
     seurat = seurat,
     assay = assay,
+    cells = cells,
     npcs = npcs
   )
   names(out$gene.clusters) <- cluster.labels

@@ -13,6 +13,8 @@ Imports:
     doParallel,
     foreach,
     igraph,
+    irlba,
+    parallel,
     Rcpp (>= 1.0.7),
     Seurat,
     uwot
