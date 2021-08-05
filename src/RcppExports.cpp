@@ -12,22 +12,21 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // dist_Cpp
-NumericVector dist_Cpp(SEXP embeddings, int idx, int npcs, double pow);
-RcppExport SEXP _moduli_dist_Cpp(SEXP embeddingsSEXP, SEXP idxSEXP, SEXP npcsSEXP, SEXP powSEXP) {
+NumericVector dist_Cpp(SEXP embeddings, int idx, int npcs);
+RcppExport SEXP _moduli_dist_Cpp(SEXP embeddingsSEXP, SEXP idxSEXP, SEXP npcsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type embeddings(embeddingsSEXP);
     Rcpp::traits::input_parameter< int >::type idx(idxSEXP);
     Rcpp::traits::input_parameter< int >::type npcs(npcsSEXP);
-    Rcpp::traits::input_parameter< double >::type pow(powSEXP);
-    rcpp_result_gen = Rcpp::wrap(dist_Cpp(embeddings, idx, npcs, pow));
+    rcpp_result_gen = Rcpp::wrap(dist_Cpp(embeddings, idx, npcs));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_moduli_dist_Cpp", (DL_FUNC) &_moduli_dist_Cpp, 4},
+    {"_moduli_dist_Cpp", (DL_FUNC) &_moduli_dist_Cpp, 3},
     {NULL, NULL, 0}
 };
 

@@ -13,7 +13,7 @@ create_knn <- function(dist, k){
       }
     }
   }
-  graph <- graph_from_edgelist(edge_list[edge_list[,1] > 0, ], directed = F)
+  graph <- igraph::graph_from_edgelist(edge_list[edge_list[,1] > 0, ], directed = F)
   return(graph)
 }
 

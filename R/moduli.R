@@ -6,11 +6,12 @@
 #' @import irlba
 #' @import bigmemory
 #' 
-#' 
+#'
 #' @export
 get_moduli <- function(seurat, membership = NULL, gene.clusters = NULL,
-                       assay = DefaultAssay(seurat), npcs = 30, points = NULL,
-                       pow = 1, n.cores = 1, size = 0, ncells = 0, seed = 123){
+                       assay = DefaultAssay(seurat), npcs = 30, weight.by.var = T,
+                       points = NULL, n.cores = 1, size = 0, ncells = 0,
+                       seed = 123, filebacked = T, persist = T){
   # gene.clusters : clusters of genes as a list of vectors of gene names
   
   if(!is.null(membership)){
@@ -32,13 +33,7 @@ get_moduli <- function(seurat, membership = NULL, gene.clusters = NULL,
       points <- append(points, comb)
     }
   }
-
-  is.large.enougth <- vapply(
-      points,
-      function(set) length(unique(unlist(gene.clusters[set]))) >= npcs,
-      FUN.VALUE = rep_len(T, length(comb))
-  )
-  points <- points[is.large.enougth]
+  
   if( size > 0 && length(points) > size) sample(points, size)
   n.pts <- length(points)
   
@@ -49,74 +44,90 @@ get_moduli <- function(seurat, membership = NULL, gene.clusters = NULL,
   }
   scaled.data <- GetAssayData(seurat[[assay]], slot = "scale.data" )[,cells]
   
-  embeddings <- bigmemory::filebacked.big.matrix(
-    nrow = length(cells)*npcs,
-    ncol = length(points),
-    backingfile = "embeddings.bin",
-    descriptorfile = "embeddings.desc"
-  )
+  if(filebacked){
+    embeddings <- filebacked.big.matrix(
+      nrow = length(cells)*npcs,
+      ncol = length(points),
+      backingfile = "embeddings.bin",
+      descriptorfile = "embeddings.desc"
+    )
+    if(!persist) on.exit(file.remove("embeddings.bin", "embeddings.desc"))
+  } else {
+    embeddings <- big.matrix(
+       nrow = length(cells)*npcs,
+       ncol = length(points),
+       shared = T
+    )
+  }
   
-  emb.descr <- bigmemory::describe(embeddings)
+  emb.descr <- describe(embeddings)
   
   cl <- parallel::makeCluster(n.cores)
-  on.exit(parallel::stopCluster(cl))
   registerDoParallel(cl)
-  
-  
-  #clusterEvalQ( cl = cl,{
-  #  library(bigmemory)
-  #  library(Seurat)
-  #})
-  
+  on.exit(parallel::stopCluster(cl), add = T)
   
   message(paste(format(Sys.time(), "%a %b %d %X"),"Building embeddings"))
   foreach(i = seq_along(points),
-          .noexport = c("seurat"),
+          .noexport = c("seurat", "cells"),
           .packages = c("bigmemory", "irlba"))%dopar%{
     feature.subset <- unique(unlist(gene.clusters[points[[i]]]))
-    if (length(feature.subset) > npcs*2){
-      pca.results <- irlba(t(scaled.data[feature.subset,]), nv = npcs)
-      cell.embeddings <- pca.results$u %*% diag(pca.results$d) #weighting by variance
-    } else {
-      pca.results <- prcomp(t(scaled.data[feature.subset,]), rank. = npcs)
-      cell.embeddings <- pca.results$x
-    }
     
+    #based on Seurat's RunPCA
+    if (length(feature.subset) > npcs*2){
+      set.seed(42) #seed used in Seurat
+      pca.results <- irlba(t(scaled.data[feature.subset,]), nv = npcs)
+      if(weight.by.var){
+        cell.embeddings <- pca.results$u %*% diag(pca.results$d)
+      } else {
+        cell.embeddings <- pca.results$u
+      }
+    } else {
+      rank <- min(npcs, nrow(scaled.data))
+      pca.results <- prcomp(t(scaled.data[feature.subset,]), rank. = rank)
+      if(weight.by.var){
+        cell.embeddings <- pca.results$x
+      } else {
+        cell.embeddings <- pca.results$x / (pca.results$sdev[1:rank] * sqrt(nrow(cell.embeddings) - 1))
+      }
+      
+      cell.embeddings <- cbind(
+        cell.embeddings,
+        matrix(data = 0, nrow = nrow(cell.embeddings), ncol = npcs - rank)
+      )
+    }
+    #standardizing embedding
+    pc.means <- apply(cell.embeddings, 2, mean)
+    cell.embeddings <- apply(cell.embeddings, 1, function(row) row - pc.means)
+    total.var <- sum(cell.embeddings^2)/(nrow(cell.embeddings) - 1)
+    cell.embeddings <- cell.embeddings*sqrt(npcs/total.var)
+    
+    #saving to bigmatrix
     emb <- attach.big.matrix(emb.descr)
     emb[,i] <- c(cell.embeddings)
   }
   #message(paste(format(Sys.time(), "%a %b %d %X"),"Finished building embeddings"))
+  parallel::stopCluster(cl)
+  cl <- parallel::makeCluster(n.cores)
+  registerDoParallel(cl)
   
   
   message(paste(format(Sys.time(), "%a %b %d %X"), "Computing distances"))
-  metric.matrix <- foreach(i = seq_along(points),
-                           .noexport = c("seurat", "gene.clusters", "points"),
-                           .packages = c("moduli"),
-                           .combine =  cbind)%dopar%{
-    
+  metric <- foreach(i = seq_along(points),
+                      .noexport = c("seurat", "gene.clusters", "points"),
+                      .packages = c("moduli", "bigmemory"),
+                      .combine =  cbind)%dopar%{
     emb <- attach.big.matrix(emb.descr)
-    dist_Cpp(emb@address, i, npcs, pow)
-    #d <- numeric(n.pts)
-    #if(i < n.pts){
-    #  m1 <- dist(matrix(data = emb[,i], ncol = npcs))
-    #  m1 <- m1*(length(m1)/sum(m1))
-    #
-    #  for(j in (i+ 1):length(points)){
-    #    m2 <- dist(matrix(data = emb[,j], ncol = npcs))
-    #    m2 <- m2*(length(m2)/sum(m2))
-    #    d[j] <- (sum(abs(m1 - m2)^pow)/length(m2))^(1/pow)
-    #  }
-    #}
-    #d
+    dist_Cpp(emb@address, i, npcs)
   }
   message(paste(format(Sys.time(), "%a %b %d %X"), "Finished computing distances"))
-
-  metric.matrix <- metric.matrix + t(metric.matrix)
+  
+  colnames(metric) <- NULL
+  metric <- as.dist(metric)
   
   out <- list(
     gene.clusters = gene.clusters,
     points = points,
-    metric.matrix = metric.matrix,
+    metric = metric,
     seurat = seurat,
     assay = assay,
     cells = cells,
@@ -128,9 +139,9 @@ get_moduli <- function(seurat, membership = NULL, gene.clusters = NULL,
 
 
 #' @export
-visualize_moduli <- function(moduli, clusters = NULL, title = NULL, n_neighbors = 15){
-  set.seed(123)
-  umap.coords <- uwot::umap(as.dist(moduli$metric.matrix), n_neighbors = n_neighbors)
+visualize_moduli <- function(moduli, clusters = NULL, title = NULL, n_neighbors = 15, seed = 123){
+  set.seed(seed)
+  umap.coords <- uwot::umap(moduli$metric, n_neighbors = n_neighbors)
   if(is.null(clusters)){
     plot(umap.coords, main = title)
   }else{
@@ -149,7 +160,8 @@ restrict_moduli <- function(moduli, clusters){
   
   keep <- sapply(moduli$points, function(pt)all( pt %in% clusters))
   res$points <- moduli$points[keep]
-  res$metric.matrix <- moduli$metric.matrix[keep, keep]
+  res$metric <- as.dist(as.matrix(moduli$metric)[keep, keep])
+  res$cells <- moduli$cells
   
   res$seurat <- moduli$seurat
   res$assay <- moduli$assay
@@ -179,14 +191,14 @@ get_freq_table <- function(moduli, partition){
 
 #' @export
 partition_moduli <- function(moduli, k = 5, verbose = T){
-  knn_moduli <- create_knn(moduli$metric.matrix, 5)
+  knn_moduli <- create_knn(moduli$metric, 5)
   jaccard <- igraph::similarity(knn_moduli, method = "jaccard", loops = T)
   jaccard.graph <- igraph::graph_from_adjacency_matrix(jaccard, mode = "undirected", weighted = T, diag = F)
 
   clusters <- igraph::cluster_louvain(jaccard.graph)
   
   if(verbose){
-    print(igraph::modularity(jaccard.graph, clusters$membership, weights = E(jaccard.graph)$weight))
+    print(igraph::modularity(jaccard.graph, clusters$membership, weights = igraph::E(jaccard.graph)$weight))
     print(table(clusters$membership))
   }
   return(clusters$membership)
@@ -198,15 +210,15 @@ find_genes <- function(moduli, genes, ignore.case = T){
   out <- list()
   for(i in seq_along(moduli$gene.clusters)){
     if(ignore.case){
-      genes.found <- genes[tolower(genes) %in% tolower(moduli$gene.clusters[[i]])]
-    }else
+      found <- tolower(moduli$gene.clusters[[i]]) %in% tolower(genes)
+    } else
     {
-      genes.found <- genes[genes %in% moduli$gene.clusters[[i]]]
+      found <- moduli$gene.clusters[[i]] %in% genes
     }
-    for(j in seq_along(genes.found)){
-      out[[genes.found[j]]] <- append(out[[genes.found[j]]], names(moduli$gene.clusters)[i])
-    }
+    out[[i]] <- moduli$gene.clusters[[i]][found]
   }
+  names(out) <- names(moduli$gene.clusters)
+  out <- out[sapply(out, function(x) length(x) > 0)]
   return(out)
 }
 
