@@ -10,7 +10,7 @@
 #' @export
 get_moduli <- function(seurat, membership = NULL, gene.clusters = NULL,
                        assay = DefaultAssay(seurat), npcs = 30, weight.by.var = T,
-                       points = NULL, n.cores = 1, size = 0, ncells = 0,
+                       points = NULL, n.cores = 1, n.pts = 0, n.cells = 0, stride = 10000,
                        seed = 123, filebacked = T, persist = T){
   # gene.clusters : clusters of genes as a list of vectors of gene names
   
@@ -34,14 +34,16 @@ get_moduli <- function(seurat, membership = NULL, gene.clusters = NULL,
     }
   }
   
-  if( size > 0 && length(points) > size) sample(points, size)
+  if( n.pts > 0 && length(points) > n.pts) sample(points, n.pts)
   n.pts <- length(points)
   
-  if(ncells > 0 && length(Cells(seurat)) > ncells){
-    cells <- sample(Cells(seurat), ncells) 
+  if(n.cells > 0 && length(Cells(seurat)) > n.cells){
+    cells <- sample(Cells(seurat), n.cells) 
   } else {
     cells <- Cells(seurat)
+    n.cells <- length(cells)
   }
+  
   scaled.data <- GetAssayData(seurat[[assay]], slot = "scale.data" )[,cells]
   
   if(filebacked){
@@ -105,24 +107,28 @@ get_moduli <- function(seurat, membership = NULL, gene.clusters = NULL,
     emb <- attach.big.matrix(emb.descr)
     emb[,i] <- c(cell.embeddings)
   }
-  #message(paste(format(Sys.time(), "%a %b %d %X"),"Finished building embeddings"))
+  
   parallel::stopCluster(cl)
   cl <- parallel::makeCluster(n.cores)
   registerDoParallel(cl)
   
-  
   message(paste(format(Sys.time(), "%a %b %d %X"), "Computing distances"))
-  metric <- foreach(i = seq_along(points),
+  metric <- foreach(i = 1:(ceiling((n.cells^2 - n.cells)/(2*stride))),
                       .noexport = c("seurat", "gene.clusters", "points"),
                       .packages = c("moduli", "bigmemory"),
-                      .combine =  cbind)%dopar%{
+                      .inorder = F,
+                      .combine =  "+",
+                      .init = numeric((n.pts^2 - n.pts)/2))%dopar%{
+    start <- stride*(i - 1) + 1
+    end <- min(stride*i, (n.cells^2 - n.cells)/2)
     emb <- attach.big.matrix(emb.descr)
-    dist_Cpp(emb@address, i, npcs)
+    partial_dist_Cpp(emb@address, start, end, npcs)
   }
   message(paste(format(Sys.time(), "%a %b %d %X"), "Finished computing distances"))
   
-  colnames(metric) <- NULL
-  metric <- as.dist(metric)
+  metric.matrix <- matrix(nrow = n.pts, ncol = n.pts)
+  metric.matrix[lower.tri(metric.matrix)] <- metric/((n.cells^2 - n.cells)/2)
+  metric <- as.dist(metric.matrix)
   
   out <- list(
     gene.clusters = gene.clusters,

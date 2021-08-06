@@ -11,22 +11,23 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// dist_Cpp
-NumericVector dist_Cpp(SEXP embeddings, int idx, int npcs);
-RcppExport SEXP _moduli_dist_Cpp(SEXP embeddingsSEXP, SEXP idxSEXP, SEXP npcsSEXP) {
+// partial_dist_Cpp
+NumericVector partial_dist_Cpp(SEXP embeddings, int k1, int k2, int npcs);
+RcppExport SEXP _moduli_partial_dist_Cpp(SEXP embeddingsSEXP, SEXP k1SEXP, SEXP k2SEXP, SEXP npcsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type embeddings(embeddingsSEXP);
-    Rcpp::traits::input_parameter< int >::type idx(idxSEXP);
+    Rcpp::traits::input_parameter< int >::type k1(k1SEXP);
+    Rcpp::traits::input_parameter< int >::type k2(k2SEXP);
     Rcpp::traits::input_parameter< int >::type npcs(npcsSEXP);
-    rcpp_result_gen = Rcpp::wrap(dist_Cpp(embeddings, idx, npcs));
+    rcpp_result_gen = Rcpp::wrap(partial_dist_Cpp(embeddings, k1, k2, npcs));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_moduli_dist_Cpp", (DL_FUNC) &_moduli_dist_Cpp, 3},
+    {"_moduli_partial_dist_Cpp", (DL_FUNC) &_moduli_partial_dist_Cpp, 4},
     {NULL, NULL, 0}
 };
 

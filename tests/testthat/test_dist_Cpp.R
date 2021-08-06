@@ -1,26 +1,38 @@
-library("moduli")
 
 test_that("Distance between embeddings is computed correctly", {
   set.seed(123)
   
-  nemb <- 30
+  n.pts <- 30
   npcs <- 40
-  npts <- 50
+  n.cells <- 50
+  stride <- 53
+   
+  emb.mat <- matrix(nrow = n.cells*npcs, ncol = n.pts)
+  dist.mat <- matrix(nrow = (n.cells^2 - n.cells)/2, ncol = n.pts)
   
-  emb.mat <- matrix(nrow = npts*npcs, ncol = nemb)
-  dist.mat <- matrix(nrow = (npts^2 - npts)/2, ncol = nemb)
-  
-  for(i in 1:nemb){
-    emb <- matrix(data = runif(npts*npcs), nrow = npts)
+  for(i in 1:n.pts){
+    emb <- matrix(data = runif(n.cells*npcs), nrow = n.cells)
     emb.mat[,i] <- c(emb)
     dist.mat[,i] <- dist(emb)
   }
-  dist.moduli.R <- dist(t(dist.mat), method = "minkowski", p = 1 )/nrow(dist.mat)
+  metric.R <- dist(t(dist.mat), method = "minkowski", p = 1 )/((n.cells^2 - n.cells)/2)
 
-  bm.emb <- bigmemory::as.big.matrix(emb.mat)
-  dist.moduli.Cpp <- matrix(nrow = nemb, ncol = nemb)
-  for(i in 1:nemb){
-    dist.moduli.Cpp[,i] <- dist_Cpp(bm.emb@address, i, npcs)
+  emb <- bigmemory::as.big.matrix(emb.mat)
+  emb.descr <- bigmemory::describe(emb)
+  
+  metric <- foreach(i = 1:(ceiling((n.cells^2 - n.cells)/(2*stride))),
+                    .inorder = F,
+                    .combine =  "+",
+                    .init = numeric((n.pts^2 - n.pts)/2))%do%{
+    start <- stride*(i - 1) + 1
+    end <- min(stride*i, (n.cells^2 - n.cells)/2)
+    emb <- bigmemory::attach.big.matrix(emb.descr)
+    partial_dist_Cpp(emb@address, start, end, npcs)
   }
-  expect_equal(dist.moduli.Cpp + t(dist.moduli.Cpp), as.matrix(dist.moduli.R), ignore_attr = T)
+  
+  metric.matrix <- matrix(nrow = n.pts, ncol = n.pts)
+  metric.matrix[lower.tri(metric.matrix)] <- metric/((n.cells^2 - n.cells)/2)
+  metric <- as.dist(metric.matrix)
+ 
+  expect_equal(metric, metric.R, ignore_attr = T)
 })
