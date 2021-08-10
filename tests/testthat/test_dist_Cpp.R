@@ -5,8 +5,9 @@ test_that("Distance between embeddings is computed correctly", {
   n.pts <- 30
   npcs <- 40
   n.cells <- 50
-  stride <- 53
-   
+  stride <- 27
+  n.cores <- 3
+  
   emb.mat <- matrix(nrow = n.cells*npcs, ncol = n.pts)
   dist.mat <- matrix(nrow = (n.cells^2 - n.cells)/2, ncol = n.pts)
   
@@ -20,14 +21,18 @@ test_that("Distance between embeddings is computed correctly", {
   emb <- bigmemory::as.big.matrix(emb.mat)
   emb.descr <- bigmemory::describe(emb)
   
-  metric <- foreach(i = 1:(ceiling((n.cells^2 - n.cells)/(2*stride))),
+  pairs.per.core <- ceiling( n.cells*(n.cells - 1)/(2*n.cores) )
+  metric <- foreach(i = 1:n.cores,
+                    .noexport = c("seurat", "gene.clusters", "points"),
+                    .packages = c("moduli", "bigmemory"),
                     .inorder = F,
                     .combine =  "+",
                     .init = numeric((n.pts^2 - n.pts)/2))%do%{
-    start <- stride*(i - 1) + 1
-    end <- min(stride*i, (n.cells^2 - n.cells)/2)
-    emb <- bigmemory::attach.big.matrix(emb.descr)
-    partial_dist_Cpp(emb@address, start, end, npcs)
+                      
+      start <- pairs.per.core*(i - 1) + 1
+      end <- min(pairs.per.core*i, n.cells*(n.cells - 1)/2)
+      emb <- attach.big.matrix(emb.descr)
+      partial_dist_Cpp(emb@address, start, end, npcs, stride)
   }
   
   metric.matrix <- matrix(nrow = n.pts, ncol = n.pts)

@@ -113,16 +113,18 @@ get_moduli <- function(seurat, membership = NULL, gene.clusters = NULL,
   registerDoParallel(cl)
   
   message(paste(format(Sys.time(), "%a %b %d %X"), "Computing distances"))
-  metric <- foreach(i = 1:(ceiling((n.cells^2 - n.cells)/(2*stride))),
+  pairs.per.core <- ceiling( n.cells*(n.cells - 1)/(2*n.cores) )
+  metric <- foreach(i = 1:n.cores,
                       .noexport = c("seurat", "gene.clusters", "points"),
                       .packages = c("moduli", "bigmemory"),
                       .inorder = F,
                       .combine =  "+",
                       .init = numeric((n.pts^2 - n.pts)/2))%dopar%{
-    start <- stride*(i - 1) + 1
-    end <- min(stride*i, (n.cells^2 - n.cells)/2)
+    
+    start <- pairs.per.core*(i - 1) + 1
+    end <- min(pairs.per.core*i, n.cells*(n.cells - 1)/2)
     emb <- attach.big.matrix(emb.descr)
-    partial_dist_Cpp(emb@address, start, end, npcs)
+    partial_dist_Cpp(emb@address, start, end, npcs, stride)
   }
   message(paste(format(Sys.time(), "%a %b %d %X"), "Finished computing distances"))
   

@@ -70,25 +70,37 @@ std::vector<double> compute_dist(double* emb, std::vector<std::vector<int>> ends
 }
 
 // [[Rcpp::export]]
-NumericVector partial_dist_Cpp(SEXP embeddings, int k1, int k2, int npcs){
+NumericVector partial_dist_Cpp(SEXP embeddings, int k1, int k2, int npcs, int stride){
   XPtr<BigMatrix> xpEmb (embeddings);
   MatrixAccessor<double> acess (*xpEmb);
   int n_emb = xpEmb->ncol();
-  std::vector<std::vector<double>> distance (n_emb);
-  NumericVector out ((n_emb*(n_emb - 1))/2);
-  int n_cell_pairs = k2 - k1 + 1;
   int n_cells = xpEmb->nrow()/npcs;
-  std::vector<std::vector<int>> ends = line_to_triang(k1-1, k2-1, n_cells);
+  NumericVector out ((n_emb*(n_emb - 1))/2);
   
+  int n_strides = (k2 - k1 + 1) / stride;
   
-  for(int n = 0; n < n_emb; n++){
-    distance[n] = compute_dist(acess[n], ends, n_cells, npcs);
-  }
+  if(n_strides*stride < (k2 - k1 + 1)) n_strides++;
   
-  for(int i = 0; i < n_emb; i ++){
-    for(int j = i + 1; j < n_emb; j ++){
-      for(int k = 0; k < n_cell_pairs; k++){
-        out[n_emb*i - (i + 1)*i/2 + j - i - 1] += std::abs(distance[i][k] - distance[j][k]);
+  // passing to 0-index
+  k1--;
+  k2--;
+  
+  for(int s = 0; s < n_strides; s++){
+    std::vector<std::vector<double>> distance (n_emb);
+    int stride_size = std::min(k2 - s*stride - k1 + 1, stride);
+    
+    std::vector<std::vector<int>> ends = \
+      line_to_triang(k1 + s*stride, k1 + s*stride + stride_size - 1, n_cells);
+    
+    for(int n = 0; n < n_emb; n++){
+      distance[n] = compute_dist(acess[n], ends, n_cells, npcs);
+    }
+    
+    for(int i = 0; i < n_emb; i ++){
+      for(int j = i + 1; j < n_emb; j ++){
+        for(int k = 0; k < stride_size; k++){
+          out[n_emb*i - (i + 1)*i/2 + j - i - 1] += std::abs(distance[i][k] - distance[j][k]);
+        }
       }
     }
   }
