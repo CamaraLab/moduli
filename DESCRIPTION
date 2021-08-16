@@ -10,15 +10,19 @@ License: What license is it under?
 Imports: 
     bigmemory,
     cluster,
+    dbscan,
     doParallel,
     foreach,
     igraph,
     irlba,
+    leiden,
     parallel,
+    plotly,
+    RColorBrewer,
     Rcpp (>= 1.0.7),
     Seurat,
     uwot
-LinkingTo: Rcpp, RcppArmadillo, bigmemory, BH
+LinkingTo: Rcpp, bigmemory, BH
 RoxygenNote: 7.1.1
 Suggests: 
     testthat (>= 3.0.0)
