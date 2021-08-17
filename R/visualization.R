@@ -1,13 +1,26 @@
+#' Interactive UMAP plot of moduli space
+#' 
+#' Plot UMAP of moduli space, coloring analysis clusters and marking given points.
+#' 
+#' @param moduli A moduli object
+#' @param n_neighbors Size of local neighborhood of umap (see \link[uwot]{umap}), defaults to 15
+#' @param mark.points Integer vector with ids of points to mark with "x", all points are marked with a circle if NULL.
+#' Default value is NULL
+#' @param color.clusters Vector with ids of analysis clusters to be colored, can only color 12 clusters. If NULL
+#' the first 12 analysis clusters are colored. Default value is NULL
+#' @param title Title of plot, dafault value is "UMAP plot of moduli space"
+#' @param seed Random seed, default value is 123
+#' @param ... Additional paramenters passed to \link[uwot]{umap}
+#' 
+#' @return A plotly visualization. Hover text contains metadata about points. If analysis clusters are
+#' enriched, differentially expressed gene clusters are marked with an asterisk.
+#' 
+#' 
 #' @export
 visualize_moduli_space <- function(moduli, n_neighbors = 15, mark.points = NULL,
                                    color.clusters = NULL, title = "UMAP plot of moduli space",
-                                   seed = 123){
-  set.seed(seed)
-  if(!is.null(mark.points)){
-    mark.legend <- c("marked", "unmarked")
-    mark.factors <- ifelse(moduli$points$id %in% mark.points, mark.legend[1], mark.legend[2])
-    mark.factors <- factor(mark.factors, levels = mark.legend)
-  }
+                                   seed = 123, ...){
+  
   
   if(!is.null(moduli$analysis.clusters) &&  is.null(color.clusters)){
     color.clusters <- sort(moduli$analysis.clusters$id)
@@ -20,13 +33,17 @@ visualize_moduli_space <- function(moduli, n_neighbors = 15, mark.points = NULL,
   }
   
   
-  umap.coords <- uwot::umap(moduli$metric, n_neighbors = n_neighbors)
+  set.seed(seed)
+  umap.coords <- uwot::umap(moduli$metric, n_neighbors = n_neighbors, ...)
   data = data.frame(
     UMAP_1 = umap.coords[,1],
     UMAP_2 = umap.coords[,2]
   )
+  # setting up factors
   if(!is.null(mark.points)){
-    data$mark.factors <- mark.factors
+    mark.legend <- c("marked", "unmarked")
+    mark.factors <- ifelse(moduli$points$id %in% mark.points, mark.legend[1], mark.legend[2])
+    data$mark.factors <- factor(mark.factors, levels = mark.legend)
   }
   if(!is.null(moduli$analysis.clusters)){
     partition.factors <- character(nrow(moduli$points))
@@ -41,9 +58,9 @@ visualize_moduli_space <- function(moduli, n_neighbors = 15, mark.points = NULL,
     data$partition <- factor(partition.factors, levels = c(paste("analysis cluster", color.clusters), "others") )
   }
   
-  # compiling hoover text  
+  # setting up hover text  
   gene.cluster.info <- sapply(moduli$points$clusters, function(pt) paste(sort(pt), collapse = " "))
-  # marking differerentially expreessed clusters with *
+  # marking differerentially expressed clusters with *
   if(!is.null(moduli$analysis.clusters$exp.gene.clusters)){
     for(i in 1:nrow(moduli$analysis.clusters)){
       members <- moduli$points$id %in% moduli$analysis.clusters$points[[i]]
@@ -137,11 +154,33 @@ visualize_moduli_space <- function(moduli, n_neighbors = 15, mark.points = NULL,
   return(plt)
 }
 
+
+
+#' Interactive UMAP plot of gene space
+#' 
+#' Plot UMAP of gene space, coloring gene clusters and marking given genes.
+#' 
+#' @param moduli A moduli object
+#' @param n_neighbors Size of local neighborhood of umap (see \link[uwot]{umap}), defaults to 15
+#' @param color.clusters Vector with ids of gene clusters to be colored, can only color 12 clusters. If NULL
+#' the first 12 gene clusters are colored. Default value is NULL
+#' @param mark.genes Integer vector with names of genes to mark with "x", all points are marked with a circle if NULL.
+#' Default value is NULL
+#' @param ignore.case Whether to ignore case for genes given to mark.genes, default value is FALSE
+#' @param metric Metric in gene space to use as a dist object, the object must have the names of the genes. If
+#' NULL the correlation metric based on the \code{"scale.data"} slot of \code{moduli$seurat[[moduli$assay]]} is used.
+#' Default value is NULL
+#' @param title Title of plot, default value is "UMAP plot of gene space"
+#' @param seed Random seed, default value is 123
+#' @param ... Additional parameters passed to \link[uwot]{umap}
+#' 
+#' @return A plotly visualization. Hover text contains metadata about genes.
+#' 
+#' 
 #' @export
-visualize_gene_space <- function(moduli, n_neighbors = 15, color.clusters = NULL, mark.genes = NULL,
-                                 ignore.case = T,
-                                 metric = NULL, title = "UMAP plot of gene space",
-                                 seed = 123){
+visualize_gene_space <- function(moduli, n_neighbors = 15, color.clusters = NULL,
+                                 mark.genes = NULL, ignore.case = F, metric = NULL,
+                                 title = "UMAP plot of gene space", seed = 123, ...){
 
   if(is.null(color.clusters)){
     color.clusters <- sort(moduli$gene.clusters$id)
@@ -152,23 +191,24 @@ visualize_gene_space <- function(moduli, n_neighbors = 15, color.clusters = NULL
     color.clusters <- color.clusters[1:12]
   }
   
+  set.seed(seed)
   if(is.null(metric)){
     gene.exp <- t(FetchData(moduli$seurat[[moduli$assay]],
                             vars = unique(unlist(moduli$gene.clusters$genes)),
                             slot = "scale.data"))
     gene.names <- rownames(gene.exp)
-    umap.coords <- uwot::umap(gene.exp, n_neighbors = n_neighbors, metric = "correlation")
+    umap.coords <- uwot::umap(gene.exp, n_neighbors = n_neighbors, metric = "correlation", ...)
   }else{
     gene.names <- rownames(as.matrix(gene.exp))
-    umap.coords <- uwot::umap(metric, n_neighbors = n_neighbors)
+    umap.coords <- uwot::umap(metric, n_neighbors = n_neighbors, ...)
   }
   
-  set.seed(seed)
   data = data.frame(
     UMAP_1 = umap.coords[,1],
     UMAP_2 = umap.coords[,2]
   )
   
+  # marking points
   if(!is.null(mark.genes)){
     mark.legend <- c("marked", "unmarked")
     if(ignore.case){
@@ -180,7 +220,7 @@ visualize_gene_space <- function(moduli, n_neighbors = 15, color.clusters = NULL
     data$mark.factors <- factor(mark.factors, levels = mark.legend)
   }
   
-  # compiling gene cluster information
+  # setting up gene clusters
   membership <- integer(length(gene.names))
   for(i in 1:nrow(moduli$gene.clusters)){
     membership[gene.names %in% moduli$gene.clusters$genes[[i]]] <- moduli$gene.clusters$id[i]
@@ -192,7 +232,7 @@ visualize_gene_space <- function(moduli, n_neighbors = 15, color.clusters = NULL
   }
   data$partition <- factor(partition.factors, levels = c(paste("gene cluster", color.clusters), "others"))
   
-  
+  # setting up hover text
   txt <- paste0(gene.names, "<br>gene cluster:", membership)
   
   # colors

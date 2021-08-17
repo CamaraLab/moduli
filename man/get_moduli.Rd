@@ -2,7 +2,7 @@
 % Please edit documentation in R/get_moduli.R
 \name{get_moduli}
 \alias{get_moduli}
-\title{Computes moduli space}
+\title{Compute moduli space metric}
 \usage{
 get_moduli(
   seuratObject,
@@ -30,7 +30,7 @@ get_moduli(
 \item{gene.clusters}{Clusters of genes as a list of character vectors, these clusters may
 intersect (the user must give exactly one the arguments gene.membership or gene.clusters)}
 
-\item{assay}{Assay in which to run PCA (DefaultAssay(seuratObject) by default). The assay must have a
+\item{assay}{Assay in which to run PCA (\code{DefaultAssay(seuratObject)} by default). The assay must have a
 "scale.data" slot}
 
 \item{npcs}{Number of principal components (defaults to 30)}
@@ -80,7 +80,7 @@ computing the distances in the moduli space. The time complexity of the algorith
 \deqn{O(n.cells^2 n.pts^2 npcs + n.cells^2 n.pts^2)}
 and by default \eqn{n.pts = 2^{n.clusters} - 1}, where \eqn{n.clusters} is the number of  gene clusters.
 The matrix with embeddings has about \eqn{8*n.pts*npcs*n.cells*10^{-9}} GB, and in
-computing distances, each cluster will use about
+computing distances, each core will use need about \eqn{8*stride*n.pts*10^{-9}} GB.
 }
 \examples{
 library(Seurat)

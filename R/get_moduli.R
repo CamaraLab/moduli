@@ -1,4 +1,4 @@
-#' Computes moduli space
+#' Compute moduli space metric
 #' 
 #' Here, by moduli space we mean a metric space where each point represents an embedding
 #' of cells by PCA with a different choice of features, and each choice of features is a
@@ -10,7 +10,7 @@
 #' @param gene.membership An integer vector with gene cluster assignments ans genes as names
 #' @param gene.clusters Clusters of genes as a list of character vectors, these clusters may
 #' intersect (the user must give exactly one the arguments gene.membership or gene.clusters)
-#' @param assay Assay in which to run PCA (DefaultAssay(seuratObject) by default). The assay must have a
+#' @param assay Assay in which to run PCA (\code{DefaultAssay(seuratObject)} by default). The assay must have a
 #' "scale.data" slot
 #' @param npcs Number of principal components (defaults to 30)
 #' @param weight.by.var Weight the cell embedding by variance of each PC (defaults to True)
