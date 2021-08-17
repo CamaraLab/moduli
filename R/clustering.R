@@ -33,7 +33,8 @@ gene_medioid_clustering <- function(seuratObject, n.clusters, slot = "scale.data
 
 #' @export
 cluster_moduli_space <- function(moduli, k, partition_type = "RBConfigurationVertexPartition",
-                                 resolution_parameter = 1, save.snn = T, enrich = T, seed = 123){
+                                 resolution_parameter = 1, save.snn = T, enrich = T,
+                                 thld = 0.05, seed = 123){
   snn.graph <- create_snn(moduli$metric, k)
   membership <- leiden::leiden(
     snn.graph,
@@ -48,7 +49,7 @@ cluster_moduli_space <- function(moduli, k, partition_type = "RBConfigurationVer
   
   if(save.snn) out$snn.graph <- snn.graph
   
-  if(enrich) out <- enrich_moduli_clusters(out)
+  if(enrich) out <- enrich_moduli_clusters(out, thld)
   
   return(out)
 }
@@ -56,34 +57,48 @@ cluster_moduli_space <- function(moduli, k, partition_type = "RBConfigurationVer
 
 #' @export
 enrich_moduli_clusters <- function(moduli, thld = 0.05){
+  # total occurrence of each gene cluster
+  g.clt.totals <- integer(nrow(moduli$gene.clusters))
+  tab <- table(unlist(moduli$points$clusters))
+  ord <- order(moduli$gene.clusters$id)
+  g.clt.totals[ord[ord %in% names(tab)]] <- tab
   
-  g.cluster.table <- matrix(data = 0, nrow = nrow(moduli$analysis.clusters),
-                            ncol = nrow(moduli$gene.clusters))
-  a.cluster.sizes <- integer(nrow(moduli$analysis.clusters))
   
-  for(i in 1:nrow(moduli$analysis.clusters)){
-    members <- moduli$analysis.clusters$points[[i]]
-    tab <- table(unlist(moduli$points$clusters[moduli$points$id %in% members]))
-    for(j in seq_along(tab)){
-      g.cluster.table[i, moduli$gene.clusters$id %in% names(tab)[j]] <- tab[j]
-    }
-    a.cluster.sizes[i] <- length(members)
-  }
-  
-  g.cluster.freq <- apply(g.cluster.table, 2, sum)/nrow(moduli$points)
   exp.gene.clusters <- NULL
+  enrichment.p.vals <- NULL
   for(i in 1:nrow(moduli$analysis.clusters)){
-    exp.gene.clusters[[i]] <- integer()
-    for(j in 1:ncol(g.cluster.table)){
-      if((g.cluster.freq[j] == 0) || (g.cluster.freq[j] == 1)) next
-      p.val <- pbinom(g.cluster.table[i,j] -1, a.cluster.sizes[i], g.cluster.freq[j], lower.tail = F)
-      if(p.val <= thld){
-        exp.gene.clusters[[i]] <- append(exp.gene.clusters[[i]], moduli$gene.clusters$id[j])
-      }
+    
+    # counts of occurrences of gene clusters in the analysis cluster
+    g.clt.counts <- integer(nrow(moduli$gene.clusters))
+    tab <- table(
+      unlist(moduli$points$clusters[moduli$points$id %in% moduli$analysis.clusters$points[[i]]])
+    )
+    g.clt.counts[ord[ord %in% names(tab)]] <- tab
+    
+    a.clt.size <- length(moduli$analysis.clusters$points[[i]])
+    p.vals <- numeric(nrow(moduli$gene.clusters))
+    
+    for(j in 1:nrow(moduli$gene.clusters)){
+      # table         g.clst in pt
+      #                 Y   N
+      # pt in a.clst Y
+      #              N
+      cont.table <- rbind(
+        c(g.clt.counts[j]                  , a.clt.size - g.clt.counts[j]),
+        c(g.clt.totals[j] - g.clt.counts[j], nrow(moduli$points) - g.clt.totals[j] - a.clt.size + g.clt.counts[j])
+      )
+      p.vals[j] <- fisher.test(cont.table, alternative = "greater")$p.value
     }
+    p.vals <- p.adjust(p.vals, method = "BH")
+    exp.gene.clusters[[i]] <- moduli$gene.clusters$id[p.vals < thld]
+    enrichment.p.vals[[i]] <- p.vals[p.vals < thld]
+    # ordering by p-value
+    exp.gene.clusters[[i]] <- exp.gene.clusters[[i]][order(enrichment.p.vals[[i]])]
+    enrichment.p.vals[[i]] <- sort(enrichment.p.vals[[i]])
   }
   out <- moduli
   out$analysis.clusters$exp.gene.clusters <- exp.gene.clusters
+  out$enrichment.p.vals <- enrichment.p.vals
   return(out)
 }
 
