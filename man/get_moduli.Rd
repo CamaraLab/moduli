@@ -11,6 +11,8 @@ get_moduli(
   assay = DefaultAssay(seuratObject),
   npcs = 30,
   weight.by.var = T,
+  emb.metric = c("cosine", "euclidean"),
+  moduli.metric = c("correlation", "l1"),
   points = NULL,
   n.cores = 1,
   n.pts = 0,
@@ -37,6 +39,13 @@ intersect (the user must give exactly one the arguments gene.membership or gene.
 
 \item{weight.by.var}{Weight the cell embedding by variance of each PC (defaults to True)}
 
+\item{emb.metric}{Type of embedding metric, options are "cosine" and "euclidean". Default value is cosine}
+
+\item{moduli.metric}{Type of moduli metric, options are "correlation" and  "l1". Deafult value is "correlation"}
+
+\item{points}{Points to be considered as a list of integer vectors. If NULL all nonempty subsets of the
+set of clusters will be considered (defaults to NULL)}
+
 \item{n.cores}{Number of cores to use}
 
 \item{n.pts}{Number of points to subsample, if 0 all points are taken (default is 0)}
@@ -54,9 +63,6 @@ larger strides is more efficient but requires more memory (default is 10000)}
 \item{persist}{Keep bigmatrix with embeddings (default is FALSE)}
 
 \item{verbose}{Print time stamps (default is TRUE)}
-
-\item{point}{Points to be considered as a list of integer vectors. If NULL all nonempty subsets of the
-set of clusters will be considered (defaults to NULL)}
 }
 \value{
 An object of class moduli with the following components:

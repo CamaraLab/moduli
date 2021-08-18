@@ -1,5 +1,5 @@
 
-
+# Remove eventually
 #' @export
 update_moduli <- function(moduli){
   out <- moduli
@@ -66,23 +66,24 @@ point_metadata <- function(moduli, points = moduli$points$id){
   return(out)
 }
 
+#' Enriches moduli with its shared nearest neighbors graph
+#' 
+#' @param moduli A moduli object
+#' @param k Number of nearest neighbors
+#' @param thld Minimum of edges weights to be kept
+#' 
+#' @return A moduli object with an snn graph in the \code{snn.graph} slot.
 #' @export
-find_genes <- function(moduli, genes, ignore.case = T){
-  out <- list()
-  for(i in seq_along(moduli$gene.clusters$genes)){
-    if(ignore.case){
-      found <- tolower(moduli$gene.clusters$genes[[i]]) %in% tolower(genes)
-    } else {
-      found <- moduli$gene.clusters$genes[[i]] %in% genes
-    }
-    out[[i]] <- moduli$gene.clusters$genes[[i]][found]
-  }
-  names(out) <- moduli$gene.clusters$id
-  out <- out[sapply(out, function(x) length(x) > 0)]
+get_snn <- function(moduli, k, thld = 0.0){
+  snn.graph <- .create_snn(moduli$metric, k, thld)
+  out <- moduli
+  out$snn.graph <- snn.graph
   return(out)
 }
 
 
+
+# keep?
 #' @export
 run_pca <- function(moduli, point){
   seuratObject <- moduli$seurat
@@ -133,5 +134,27 @@ run_pca <- function(moduli, point){
   }
 }
 
+.create_snn <- function(dist, k, thld = 0.0){
+  snn <- dbscan::kNN(dist, k)
+  id <- snn$id
+  n.vertices <- nrow(id)
+  rows <- 1:n.vertices
+  neighbors <- matrix(0, nrow = n.vertices, ncol = n.vertices)
+  
+  for (col in 1:k) neighbors[cbind(rows, id[,col])] <- 1
+  
+  diag(neighbors) <- 1
+  
+  adjacency <- neighbors %*% t(neighbors)
+  adjacency[adjacency > 0] <- adjacency[adjacency > 0] / (2*k + 2 - adjacency[adjacency > 0])
+  
+  snn.graph <- igraph::graph_from_adjacency_matrix(
+    adjacency,
+    mode = "undirected",
+    weighted = T,
+    diag = F
+  )
+  return(snn.graph)
+}
 
 

@@ -1,62 +1,63 @@
 
-create_snn <- function(dist, k){
-  snn <- dbscan::kNN(dist, k)
-  id <- snn$id
-  n.vertices <- nrow(id)
-  rows <- 1:n.vertices
-  neighbors <- matrix(0, nrow = n.vertices, ncol = n.vertices)
-  
-  for (col in 1:k) neighbors[cbind(rows, id[,col])] <- 1
-  
-  diag(neighbors) <- 1
-  
-  adjacency <- neighbors %*% t(neighbors)
-  adjacency[adjacency > 0] <- adjacency[adjacency > 0] / (2*k + 2 - adjacency[adjacency > 0])
-  snn.graph <- igraph::graph_from_adjacency_matrix(
-    adjacency,
-    mode = "undirected",
-    weighted = T,
-    diag = F
-  )
-  
-  return(snn.graph)
-}
 
+#' Clusters moduli space using the Leiden algorithm
+#' 
+#' Create clusters of analysis by applying \link[leiden]{leiden} to the snn graph
+#' of the moduli
+#' 
+#' @param moduli A moduli object with a graph in the \code{snn.graph} slot
+#' @param resolution_paramenter Resolution passed to the Leiden algorithm (see \link[leiden]{leiden}), default
+#' value is 1
+#' @param partition_type Type of partition to use (see \link[leiden]{leiden}), default value is
+#' "RBConfigurationVertexPartition"
+#' @param  enrich Whether to enrich the analysis clusters with differentially expressed gene clusters
+#' by calling \link{enrich_analyis_clusters}. Default value is TRUE
+#' @param thld Significance threshold for gene clusters, only used if \code{enrich} is TRUE
+#' @param seed Random seed, default value is 123
+#' @param ... Additional arguments passed to \link[leiden]{leiden}
+#' 
+#' 
+#' @return A moduli object with analysis clusters saved in the \code{analysis.clusters} slot.
+#' 
 #' @export
-gene_medioid_clustering <- function(seuratObject, n.clusters, slot = "scale.data", 
-                             features = VariableFeatures(seuratObject)){
-  data <- FetchData(seuratObject, vars = features, slot = slot)
-  dist.mat <- 1 - cor(data)
-  part <- cluster::pam(dist.mat, n.clusters, diss = T)
-  return(part)
-}
-
-#' @export
-cluster_moduli_space <- function(moduli, k, partition_type = "RBConfigurationVertexPartition",
-                                 resolution_parameter = 1, save.snn = T, enrich = T,
-                                 thld = 0.05, seed = 123){
-  snn.graph <- create_snn(moduli$metric, k)
+cluster_moduli_space <- function(moduli, resolution_parameter = 1,
+                                 partition_type = "RBConfigurationVertexPartition",
+                                 enrich = T, thld = 0.05, seed = 123, ...){
+  if(is.null(moduli$snn.graph)){
+    stop("Error: snn graph required, run get_snn first")
+  }
+  
   membership <- leiden::leiden(
-    snn.graph,
+    moduli$snn.graph,
     partition_type = partition_type,
     resolution_parameter = resolution_parameter,
-    seed = seed
+    seed = seed,
+    ...
   )
   out <- moduli
   out$analysis.clusters <- data.frame(id = sort(unique(membership)))
   out$analysis.clusters$points <- lapply(out$analysis.clusters$id,
                                            function(p) out$points$id[membership == p])
   
-  if(save.snn) out$snn.graph <- snn.graph
-  
-  if(enrich) out <- enrich_moduli_clusters(out, thld)
+  if(enrich) out <- enrich_analyis_clusters(out, thld)
   
   return(out)
 }
 
-
+#' Enriches analysis clusters with differentially expressed gene clusters
+#' 
+#' Applies Fisher's exact test to find differentially expressed gene clusters in
+#' each analysis cluster.
+#' 
+#' @param moduli A moduli object with analysis clusters save to the \code{analysis.clusters} slot
+#' @param thld Significance threshold
+#' @return A moduli object with diffentially expressed gene clusters and associated p-values
+#' saved in the \code{analysis.clusters$exp.gene.clusters} and \code{analysis.clusters$enrichment.p.vals}
+#' respectively, ordered by of significance.
+#' 
+#' 
 #' @export
-enrich_moduli_clusters <- function(moduli, thld = 0.05){
+enrich_analysis_clusters <- function(moduli, thld = 0.05){
   # total occurrence of each gene cluster
   g.clt.totals <- integer(nrow(moduli$gene.clusters))
   tab <- table(unlist(moduli$points$clusters))
@@ -101,6 +102,5 @@ enrich_moduli_clusters <- function(moduli, thld = 0.05){
   out$enrichment.p.vals <- enrichment.p.vals
   return(out)
 }
-
 
 

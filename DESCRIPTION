@@ -14,6 +14,7 @@ Imports:
     dbscan,
     doParallel,
     foreach,
+    gprofiler2,
     igraph,
     irlba,
     leiden,
@@ -26,5 +27,8 @@ Imports:
 LinkingTo: Rcpp, bigmemory, BH
 RoxygenNote: 7.1.1
 Suggests: 
+    RayleighSelection (>= 0.0.0.9000),
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+Remotes:  
+    CamaraLab/RayleighSelection
