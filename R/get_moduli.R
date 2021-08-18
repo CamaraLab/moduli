@@ -14,7 +14,9 @@
 #' "scale.data" slot
 #' @param npcs Number of principal components (defaults to 30)
 #' @param weight.by.var Weight the cell embedding by variance of each PC (defaults to True)
-#' @param point Points to be considered as a list of integer vectors. If NULL all nonempty subsets of the
+#' @param emb.metric Type of embedding metric, options are "cosine" and "euclidean". Default value is cosine
+#' @param moduli.metric Type of moduli metric, options are "correlation" and  "l1". Deafult value is "correlation"
+#' @param points Points to be considered as a list of integer vectors. If NULL all nonempty subsets of the
 #' set of clusters will be considered (defaults to NULL)
 #' @param n.cores Number of cores to use
 #' @param n.pts Number of points to subsample, if 0 all points are taken (default is 0)
@@ -60,13 +62,18 @@
 #' @export
 get_moduli <- function(seuratObject, gene.membership = NULL, gene.clusters = NULL,
                        assay = DefaultAssay(seuratObject), npcs = 30, weight.by.var = T,
+                       emb.metric = c("cosine", "euclidean"), moduli.metric = c("correlation", "l1"),
                        points = NULL, n.cores = 1, n.pts = 0, n.cells = 0, stride = 10000,
                        seed = 42, filebacked = T, persist = F, verbose = T){
-  # gene.clusters : clusters of genes as a list of vectors of gene names
+  
   if(sum(c(is.null(gene.membership), is.null(gene.clusters))) != 1){
     stop("Error: provide exatcly one of the arguments gene.membership or gene.clusters")
   }
   
+  emb.metric <- match.arg(emb.metric)
+  moduli.metric <- match.arg(moduli.metric)
+  
+  # setting up gene clusters
   if(!is.null(gene.membership)){
     gene.clusters <- list()
     cluster.ids <- sort(unique(gene.membership))
@@ -82,23 +89,30 @@ get_moduli <- function(seuratObject, gene.membership = NULL, gene.clusters = NUL
   gene.clusters <- data.frame(id = cluster.ids)
   gene.clusters$genes <- temp
   
+  # setting up points
   set.seed(seed)
   if(is.null(points) && (n.pts == 0 || n.pts >= 2^n.clusters -1 )){
     for(n in 1:n.clusters){
+      # retrieve all points
       comb <- combn(gene.clusters$id, n, simplify = F)
       points <- append(points, comb)
     }
   } else if(is.null(points)){
+    # sample points
     ints <- sample(1:(2^n.clusters -1), n.pts)
     points <- lapply(ints, function(d) gene.clusters$id[intToBits(d) == 1])
   }
   
-  if( n.pts > 0 && length(points) > n.pts) points <- sample(points, n.pts)
+  if( n.pts > 0 && length(points) > n.pts){
+    # if points are given and n.pts is less than then number of points given
+    points <- sample(points, n.pts)
+  } 
   n.pts <- length(points)
   temp <- points
   points <- data.frame(id = 1:n.pts)
   points$clusters <- temp
   
+  # setting up cells
   if(n.cells > 0 && length(Cells(seuratObject)) > n.cells){
     cells <- sample(Cells(seuratObject), n.cells) 
   } else {
@@ -106,8 +120,10 @@ get_moduli <- function(seuratObject, gene.membership = NULL, gene.clusters = NUL
     n.cells <- length(cells)
   }
   
+  # data used for PCA
   scaled.data <- GetAssayData(seuratObject[[assay]], slot = "scale.data" )[,cells]
   
+  # setting up bigmatrix
   if(filebacked){
     embeddings <- filebacked.big.matrix(
       nrow = length(cells)*npcs,
@@ -123,76 +139,85 @@ get_moduli <- function(seuratObject, gene.membership = NULL, gene.clusters = NUL
        shared = T
     )
   }
-  
   emb.descr <- describe(embeddings)
   
+  #making "PSOCK" clusters, "FORK" does not work with bigmatrix
   cl <- parallel::makeCluster(n.cores)
   registerDoParallel(cl)
   on.exit(parallel::stopCluster(cl), add = T)
   
+  # Building embeddings
   if(verbose) message(paste(format(Sys.time(), "%a %b %d %X"),"Building embeddings"))
-  foreach(i = 1:n.pts,
-          .noexport = c("seuratObject", "cells"),
-          .packages = c("bigmemory", "irlba"))%dopar%{
+  
+  # dist.stats is only used if moduli.metric = "correlation", in which case it has means and sds
+  # of the distances in each embedding
+  
+  dist.stats <- foreach(
+    i = 1:n.pts,
+    .noexport = c("seuratObject", "cells"),
+    .packages = c("bigmemory", "irlba"),
+    .combine = rbind
+    )%dopar%{
     feature.subset <- unique(unlist(gene.clusters$genes[points$clusters[[i]]]))
-    
-    #based on Seurat's RunPCA
-    if (length(feature.subset) > npcs*2){
-      set.seed(seed)
-      pca.results <- irlba(t(scaled.data[feature.subset,]), nv = npcs)
-      if(weight.by.var){
-        cell.embeddings <- pca.results$u %*% diag(pca.results$d)
-      } else {
-        cell.embeddings <- pca.results$u
-      }
-    } else {
-      rank <- min(npcs, nrow(scaled.data))
-      pca.results <- prcomp(t(scaled.data[feature.subset,]), rank. = rank)
-      if(weight.by.var){
-        cell.embeddings <- pca.results$x
-      } else {
-        cell.embeddings <- pca.results$x / (pca.results$sdev[1:rank] * sqrt(nrow(cell.embeddings) - 1))
-      }
-      
-      cell.embeddings <- cbind(
-        cell.embeddings,
-        matrix(data = 0, nrow = nrow(cell.embeddings), ncol = npcs - rank)
-      )
-    }
-    #standardizing embedding
-    pc.means <- apply(cell.embeddings, 2, mean)
-    cell.embeddings <- apply(cell.embeddings, 1, function(row) row - pc.means)
-    total.var <- sum(cell.embeddings^2)/(nrow(cell.embeddings) - 1)
-    cell.embeddings <- cell.embeddings*sqrt(npcs/total.var)
-    
-    #saving to bigmatrix
+    cell.embeddings <- .pca_aux(scaled.data, feature.subset, npcs, weight.by.var = weight.by.var,
+                                scale = emb.metric, seed = seed)
+    # saving to bigmatrix
     emb <- attach.big.matrix(emb.descr)
     emb[,i] <- c(cell.embeddings)
+    
+    if(moduli.metric == "l1"){
+      stats <- c(0, 0)
+    } else if(moduli.metric == "correlation"){
+      # compute distance
+      if(emb.metric == "euclidean"){
+        d <- dist(cell.embeddings)
+      } else if(emb.metric == "cosine"){
+        temp <- cell.embeddings %*% t(cell.embeddings)
+        temp <- temp[lower.tri(temp)]
+        d <- c(acos(temp))
+      }
+      # compute distance mean and std dev
+      stats <- c(mean(d), sd(d))
+    }
+    stats
   }
   
   parallel::stopCluster(cl)
   cl <- parallel::makeCluster(n.cores)
   registerDoParallel(cl)
   
+  
+  # computing metric matrix
   if(verbose) message(paste(format(Sys.time(), "%a %b %d %X"), "Computing distances"))
-  pairs.per.core <- ceiling( n.cells*(n.cells - 1)/(2*n.cores) )
-  metric <- foreach(i = 1:n.cores,
-                      .noexport = c("seuratObject", "gene.clusters", "points"),
-                      .packages = c("moduli", "bigmemory"),
-                      .inorder = F,
-                      .combine =  "+",
-                      .init = numeric((n.pts^2 - n.pts)/2))%dopar%{
-    
+  n.cell.pairs <- n.cells*(n.cells - 1)/2
+  pairs.per.core <- ceiling(n.cell.pairs/n.cores)
+  
+  metric <- foreach(
+    i = 1:n.cores,
+    .noexport = c("seuratObject", "gene.clusters", "points"),
+    .packages = c("moduli", "bigmemory"),
+    .inorder = F,
+    .combine =  "+",
+    .init = numeric(n.pts*(n.pts -1)/2)
+    )%dopar%{
     start <- pairs.per.core*(i - 1) + 1
-    end <- min(pairs.per.core*i, n.cells*(n.cells - 1)/2)
+    end <- min(pairs.per.core*i, n.cell.pairs)
     emb <- attach.big.matrix(emb.descr)
-    partial_dist_Cpp(emb@address, start, end, npcs, stride)
+    partial_moduli_dist(emb@address, emb.metric, moduli.metric, start, end, npcs, stride)
+  }
+ 
+  metric.matrix <- matrix(nrow = n.pts, ncol = n.pts)
+  if(moduli.metric == "l1"){
+    metric.matrix[lower.tri(metric.matrix)] <- metric/n.cell.pairs
+    metric <- as.dist(metric.matrix) 
+  } else if(moduli.metric == "correlation"){
+    # computing correlation from second moment
+    metric.matrix[lower.tri(metric.matrix)] <- metric
+    metric.matrix <- metric.matrix - n.cell.pairs*(dist.stats[,1] %*% t(dist.stats[,1]))
+    metric.matrix <- metric.matrix / ((n.cell.pairs - 1)*(dist.stats[,2] %*% t(dist.stats[,2])))
+    metric <- as.dist( 1 - metric.matrix)
   }
   if(verbose) message(paste(format(Sys.time(), "%a %b %d %X"), "Finished computing distances"))
-  
-  metric.matrix <- matrix(nrow = n.pts, ncol = n.pts)
-  metric.matrix[lower.tri(metric.matrix)] <- metric/((n.cells^2 - n.cells)/2)
-  metric <- as.dist(metric.matrix)
   
   out <- list(
     gene.clusters = gene.clusters,
@@ -201,7 +226,10 @@ get_moduli <- function(seuratObject, gene.membership = NULL, gene.clusters = NUL
     seurat = seuratObject,
     assay = assay,
     cells = cells,
-    npcs = npcs
+    npcs = npcs,
+    weight.by.var = weight.by.var,
+    metric.type = moduli.metric,
+    emb.metric = emb.metric
   )
   
   class(out) <- "moduli"

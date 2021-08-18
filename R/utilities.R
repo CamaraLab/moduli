@@ -95,5 +95,43 @@ run_pca <- function(moduli, point){
 }
 
 
+.pca_aux <- function(scaled.data, feature.subset, npcs, weight.by.var= T, scale = NULL, seed = 42){
+  set.seed(seed)
+  # based on Seurat's RunPCA
+  if (length(feature.subset) > npcs*2){
+    pca.results <- irlba(t(scaled.data[feature.subset,]), nv = npcs)
+    if(weight.by.var){
+      cell.embeddings <- pca.results$u %*% diag(pca.results$d)
+    } else {
+      cell.embeddings <- pca.results$u
+    }
+  } else {
+    rank <- min(npcs, length(feature.subset))
+    pca.results <- prcomp(t(scaled.data[feature.subset,]), rank. = rank)
+    if(weight.by.var){
+      cell.embeddings <- pca.results$x
+    } else {
+      cell.embeddings <- pca.results$x / (pca.results$sdev[1:rank] * sqrt(nrow(cell.embeddings) - 1))
+    }
+    # add zeros to make dimension equal to npcs if necessary
+    cell.embeddings <- cbind(
+      cell.embeddings,
+      matrix(data = 0, nrow = nrow(cell.embeddings), ncol = npcs - rank)
+    )
+  }
+  if(is.null(scale)) return(cell.embeddings)
+  if(scale == "euclidean"){
+    pc.means <- apply(cell.embeddings, 2, mean)
+    cell.embeddings <- t(t(cell.embeddings) - pc.means)
+    total.var <- sum(cell.embeddings^2)/(nrow(cell.embeddings) - 1)
+    cell.embeddings <- cell.embeddings*sqrt(npcs/total.var)
+    return(cell.embeddings)
+  }
+  if(scale == "cosine"){
+    cell.embeddings <- cell.embeddings / sqrt(apply(cell.embeddings^2, 1, sum))
+    return(cell.embeddings)
+  }
+}
+
 
 

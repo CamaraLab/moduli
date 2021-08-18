@@ -10,24 +10,26 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// partial_dist_Cpp
-NumericVector partial_dist_Cpp(SEXP embeddings, int k1, int k2, int npcs, int stride);
-RcppExport SEXP _moduli_partial_dist_Cpp(SEXP embeddingsSEXP, SEXP k1SEXP, SEXP k2SEXP, SEXP npcsSEXP, SEXP strideSEXP) {
+// partial_moduli_dist
+NumericVector partial_moduli_dist(SEXP embeddings, std::string emb_metric, std::string moduli_metric, int k1, int k2, int npcs, int stride);
+RcppExport SEXP _moduli_partial_moduli_dist(SEXP embeddingsSEXP, SEXP emb_metricSEXP, SEXP moduli_metricSEXP, SEXP k1SEXP, SEXP k2SEXP, SEXP npcsSEXP, SEXP strideSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type embeddings(embeddingsSEXP);
+    Rcpp::traits::input_parameter< std::string >::type emb_metric(emb_metricSEXP);
+    Rcpp::traits::input_parameter< std::string >::type moduli_metric(moduli_metricSEXP);
     Rcpp::traits::input_parameter< int >::type k1(k1SEXP);
     Rcpp::traits::input_parameter< int >::type k2(k2SEXP);
     Rcpp::traits::input_parameter< int >::type npcs(npcsSEXP);
     Rcpp::traits::input_parameter< int >::type stride(strideSEXP);
-    rcpp_result_gen = Rcpp::wrap(partial_dist_Cpp(embeddings, k1, k2, npcs, stride));
+    rcpp_result_gen = Rcpp::wrap(partial_moduli_dist(embeddings, emb_metric, moduli_metric, k1, k2, npcs, stride));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_moduli_partial_dist_Cpp", (DL_FUNC) &_moduli_partial_dist_Cpp, 5},
+    {"_moduli_partial_moduli_dist", (DL_FUNC) &_moduli_partial_moduli_dist, 7},
     {NULL, NULL, 0}
 };
 
