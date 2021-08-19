@@ -36,6 +36,6 @@ value is 1}
 A moduli object with analysis clusters saved in the \code{analysis.clusters} slot.
 }
 \description{
-Create clusters of analysis by applying \link[leiden]{leiden} to the snn graph
-of the moduli
+Create clusters of analysis (i.e. points in the moduli) by applying 
+\link[leiden]{leiden} to the snn graph of the moduli.
 }

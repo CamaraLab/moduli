@@ -102,7 +102,9 @@ score_gene_clusters <- function(moduli){
 #' Retrieves gene cluster metadata
 #' 
 #' @param moduli A moduli object
-#' @return A data.frame
+#' @return A data.frame with the ids of gene clusters, their sizes, names of expressed
+#' terms and associated p-values (if present), laplacian score and associated rank (if present)
+#' and ids of analysis clusters where they are differentially expressed (if present).
 #' 
 #' @export
 gene_cluster_metadata <- function(moduli){
@@ -112,6 +114,14 @@ gene_cluster_metadata <- function(moduli){
   out$term.p.vals <- moduli$gene.clusters$term.p.vals
   out$laplacian.score <- moduli$gene.clusters$laplacian.score
   out$rank <- moduli$gene.clusters$rank
+  if(!is.null(moduli$analysis.clusters$exp.gene.clusters)){
+    expressed.in <- NULL
+    for(i in 1:nrow(out)){
+      present <- sapply(moduli$analysis.clusters$exp.gene.clusters, function(s) out$id[i] %in% s)
+      expressed.in[[i]] <- moduli$analysis.clusters$id[present]
+    }
+    out$expressed.in <- expressed.in
+  }
   return(out)
 }
 

@@ -18,5 +18,5 @@ respectively, ordered by of significance.
 }
 \description{
 Applies Fisher's exact test to find differentially expressed gene clusters in
-each analysis cluster.
+each cluster of analysis.
 }

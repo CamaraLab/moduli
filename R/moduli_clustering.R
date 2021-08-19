@@ -2,8 +2,8 @@
 
 #' Clusters moduli space using the Leiden algorithm
 #' 
-#' Create clusters of analysis by applying \link[leiden]{leiden} to the snn graph
-#' of the moduli
+#' Create clusters of analysis (i.e. points in the moduli) by applying 
+#' \link[leiden]{leiden} to the snn graph of the moduli.
 #' 
 #' @param moduli A moduli object with a graph in the \code{snn.graph} slot
 #' @param resolution_paramenter Resolution passed to the Leiden algorithm (see \link[leiden]{leiden}), default
@@ -39,7 +39,7 @@ cluster_moduli_space <- function(moduli, resolution_parameter = 1,
   out$analysis.clusters$points <- lapply(out$analysis.clusters$id,
                                            function(p) out$points$id[membership == p])
   
-  if(enrich) out <- enrich_analyis_clusters(out, thld)
+  if(enrich) out <- enrich_analysis_clusters(out, thld)
   
   return(out)
 }
@@ -47,7 +47,7 @@ cluster_moduli_space <- function(moduli, resolution_parameter = 1,
 #' Enriches analysis clusters with differentially expressed gene clusters
 #' 
 #' Applies Fisher's exact test to find differentially expressed gene clusters in
-#' each analysis cluster.
+#' each cluster of analysis.
 #' 
 #' @param moduli A moduli object with analysis clusters save to the \code{analysis.clusters} slot
 #' @param thld Significance threshold
@@ -99,8 +99,25 @@ enrich_analysis_clusters <- function(moduli, thld = 0.05){
   }
   out <- moduli
   out$analysis.clusters$exp.gene.clusters <- exp.gene.clusters
-  out$enrichment.p.vals <- enrichment.p.vals
+  out$analysis.clusters$enrichment.p.vals <- enrichment.p.vals
   return(out)
 }
+
+#' Retrieved analysis cluster metadata
+#' 
+#' @param moduli A moduli object with analysis clusters save to the \code{analysis.clusters} slot
+#' @returns A data.frame with ids, sizes, and, if available, expressed gene clusters and associated
+#' p-values of each analysis cluster.
+#' 
+#' @export
+analysis_cluster_metadata <- function(moduli){
+  out <- data.frame(id = moduli$analysis.clusters$id)
+  out$size <- sapply(moduli$analysis.clusters$points, length)
+  out$exp.gene.clusters <- moduli$analysis.clusters$exp.gene.clusters
+  out$enrichment.p.vals <- moduli$analysis.clusters$enrichment.p.vals
+  return(out)
+}
+
+
 
 

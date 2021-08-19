@@ -10,7 +10,9 @@ gene_cluster_metadata(moduli)
 \item{moduli}{A moduli object}
 }
 \value{
-A data.frame
+A data.frame with the ids of gene clusters, their sizes, names of expressed
+terms and associated p-values (if present), laplacian score and associated rank (if present)
+and ids of analysis clusters where they are differentially expressed (if present).
 }
 \description{
 Retrieves gene cluster metadata
