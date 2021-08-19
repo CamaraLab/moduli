@@ -1,25 +1,16 @@
-library(Seurat)
 
 test_that("Distance between embeddings is computed correctly", {
   set.seed(123)
   
-  data("pbmc_small")
-  n.clusters <- 4
+  data("pbmc_small_moduli")
+ 
+  pbmc_small <- pbmc_small_moduli$seurat
+  gene.clusters <- pbmc_small_moduli$gene.clusters
   npcs <- 3
   
-  oldw <- getOption("warn")
-  options(warn = -1)
-  pbmc_small <- SCTransform(pbmc_small, verbose = F, variable.features.n = 100)
-  options(warn = oldw)
-  
-  vf <- VariableFeatures(pbmc_small)
-  
-  membership <- ceiling(runif(length(vf), min = 0, max = n.clusters))
-  names(membership) <- vf
-  
   # straightforward calculation
-  get_metric_R <- function(seurat, membership, npcs, emb.metric, moduli.metric){
-    n.clusters <- length(unique(membership))
+  get_metric_R <- function(seurat, gene.clusters, npcs, emb.metric, moduli.metric){
+    n.clusters <- nrow(gene.clusters)
     n.cells <- length(Cells(seurat))
     n.cell.pairs <- n.cells*(n.cells -1)/2
     
@@ -35,7 +26,7 @@ test_that("Distance between embeddings is computed correctly", {
     scaled.data <- GetAssayData(seurat, slot = "scale.data")
   
     for(i in 1:n.pts){
-      feature.subset <- names(membership)[membership %in% points[[i]]]
+      feature.subset <- unique(unlist(gene.clusters$genes[gene.clusters$id %in% points[[i]]]))
       cell.embeddings <- .pca_aux(scaled.data, feature.subset, npcs, scale = emb.metric)
       emb.mat[,i] <- c(cell.embeddings)
       if(emb.metric == "euclidean"){
@@ -56,8 +47,8 @@ test_that("Distance between embeddings is computed correctly", {
   
   for(emb.metric in c("cosine", "euclidean")){
     for(moduli.metric in c("correlation", "l1")){
-      metric.R <- get_metric_R(pbmc_small, membership, npcs, emb.metric, moduli.metric)
-      metric <- get_moduli(pbmc_small, gene.membership = membership, npcs = npcs,
+      metric.R <- get_metric_R(pbmc_small, gene.clusters, npcs, emb.metric, moduli.metric)
+      metric <- get_moduli(pbmc_small, gene.clusters = gene.clusters$genes, npcs = npcs,
                            emb.metric = emb.metric, moduli.metric = moduli.metric,
                            filebacked = F, verbose = F)$metric
       expect_equal(metric, metric.R, ignore_attr = T)

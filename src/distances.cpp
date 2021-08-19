@@ -147,3 +147,40 @@ NumericVector partial_moduli_dist(SEXP embeddings, std::string emb_metric,
   }
   return out;
 }
+
+// Avereges distances beteween pair of cells across embeddings
+//
+// embeddings: matrix of embeddings as an address to a bigmatrix
+// emb_metric: type of embedding metric ("cosine" or "euclidean")
+// k1, k2: start and end position of pairs of cells considered
+// npcs: number of principal components
+//
+// [[Rcpp::export]]
+NumericVector consensus_dist(SEXP embeddings, std::string emb_metric, int k1,
+                             int k2, int npcs){
+  
+  XPtr<BigMatrix> xpEmb (embeddings);
+  MatrixAccessor<double> acess (*xpEmb);
+  int n_emb = xpEmb->ncol();
+  int n_cells = xpEmb->nrow()/npcs;
+  NumericVector out (k2 - k1 + 1);
+  
+
+  // passing to 0-index
+  k1--;
+  k2--;
+  
+  std::vector<std::vector<int>> ends = line_to_triang(k1, k2, n_cells);
+    
+  // computing distances between cell pairs in embeddings
+  for(int n = 0; n < n_emb; n++){
+    std::vector<double> distances;
+    distances = compute_emb_dist(acess[n], ends, n_cells, npcs, emb_metric);
+    for(int i = 0; i < out.size(); i++){
+      out[i] += distances[i]; 
+    }
+  }
+  for(int i = 0; i < out.size(); i++) out[i] /= n_emb;
+  return out;
+}
+

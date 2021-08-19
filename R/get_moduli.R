@@ -35,7 +35,7 @@
 #' \item{metric}{A 'dist' object with the moduli metric}
 #' \item{seurat}{The Seurat object used to contruct the moduli}
 #' \item{assay}{Name of the assay used to construct the moduli}
-#' \item{cells}{Character vector with names of cells used to compute metric}
+#' \item{cells}{Character vector with names of cells used to compute the moduli metric}
 #' \item{npcs}{Number of principal components used in moduli construction}
 #' 
 #' @details Computing the moduli space is very memory and processing intensive, specially
@@ -47,16 +47,18 @@
 #' 
 #' @examples
 #' library(Seurat)
+#' set.seed(123)
+#' 
 #' data("pbmc_small")
 #' 
 #' # normalize data
 #' pbmc_small <- SCTransform(pbmc_small, verbose = F)
 #' 
 #' # cluster genes
-#' pam <- gene_medioid_clustering(pbmc_small, 4)
+#' pam <- gene_medioid_clustering(pbmc_small, 6)
 #' 
 #' # compute moduli
-#' moduli <- get_moduli(pbmc_small, membership = pam$clustering, npcs = 5, verbose = F, filebacked = F)
+#' pbmc_small_moduli <- get_moduli(pbmc_small, gene.membership = pam$clustering, npcs = 3, verbose = F, filebacked = F)
 #' 
 #' 
 #' @export

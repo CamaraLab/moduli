@@ -27,9 +27,25 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// consensus_dist
+NumericVector consensus_dist(SEXP embeddings, std::string emb_metric, int k1, int k2, int npcs);
+RcppExport SEXP _moduli_consensus_dist(SEXP embeddingsSEXP, SEXP emb_metricSEXP, SEXP k1SEXP, SEXP k2SEXP, SEXP npcsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type embeddings(embeddingsSEXP);
+    Rcpp::traits::input_parameter< std::string >::type emb_metric(emb_metricSEXP);
+    Rcpp::traits::input_parameter< int >::type k1(k1SEXP);
+    Rcpp::traits::input_parameter< int >::type k2(k2SEXP);
+    Rcpp::traits::input_parameter< int >::type npcs(npcsSEXP);
+    rcpp_result_gen = Rcpp::wrap(consensus_dist(embeddings, emb_metric, k1, k2, npcs));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_moduli_partial_moduli_dist", (DL_FUNC) &_moduli_partial_moduli_dist, 7},
+    {"_moduli_consensus_dist", (DL_FUNC) &_moduli_consensus_dist, 5},
     {NULL, NULL, 0}
 };
 

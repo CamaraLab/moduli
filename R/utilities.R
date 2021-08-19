@@ -122,17 +122,131 @@ retrieve_point <- function(moduli, point.id){
   return(seuratObject)
 }
 
-
-# keep?
+#' Retries consensus metric
+#' 
+#' Computes the average distance between cell pairs across a set of embeddings
+#' 
+#' @param moduli A moduli object
+#' @param point.ids Ids of moduli points to have their associated metrics averaged, default value is NULL
+#' @param analysis.cluster.ids Ids of analysis clusters to have associated metrics averaged,
+#' default value is NULL. The user must give either point ids or cluster analysis ids
+#' @param desc.file Optional bigmatrix descriptor file with moduli embeddings as produced by
+#' \link{get_moduli}. See 'Details' 
+#' @param n.cores Numbers of cores to use, default value is 1
+#' @param seed Random seed to use, default value is 42
+#' @param filebacked Use a filebacked bigmatrix to store embeddings, only has an effect if
+#' \code{desc.file} is NULL. Default value is FALSE
+#' @param persist Keep bigmatrix with embeddings, only has effect if \code{filebacked} is TRUE.
+#' Default value is FALSE
+#' @param verbose Print time stamps, default value is TRUE
+#' 
+#' @returns A "dist" object with avereged cell distances and cell labels
+#' 
+#' @details 
+#' If a descriptor file is given, pre-calculated embeddings will be used.
+#' In this case the only cells represented in the output are the cells in \code{moduli$cells}.
+#' If no descriptor file is given, embedding will be calculated again, but all cells in the
+#' moduli's Seurat object will be represented in the output.
+#' 
 #' @export
-run_pca <- function(moduli, point){
-  seuratObject <- moduli$seurat
-  gene.clusters <- unlist(modili$points$clusters[moduli$points$id == point])
-  features <- unique(unlist(moduli$gene.clusters$genes[moduli$gene.clusters$id %in% gene.clusters]))
-  approx  <- (length(features) > 2*moduli$npcs)
-  seuratObject <- RunPCA(seuratObject, assay = moduli$assay, features = features,
-                    npcs = moduli$npcs, approx = approx, verbose = F)
-  return(suratObject)
+retrieve_consesus <- function(moduli, point.ids = NULL, analysis.cluster.ids = NULL,
+                              desc.file = NULL, n.cores = 1, seed = 42,
+                              filebacked = F, persist = F, verbose = T){
+  
+  if(sum(c(is.null(point.ids), is.null(analysis.cluster.ids))) != 1){
+    stop("Error: please give exatcly one, a set of point ids or a set of analysis cluster ids")
+  }
+  if(!is.null(analysis.cluster.ids)){
+    point.ids <- unlist(
+      moduli$analysis.clusters$points[moduli$analysis.clusters$id %in% analysis.cluster.ids]
+    )
+  }
+  n.pts <- length(point.ids)
+  emb.metric <- moduli$emb.metric
+  npcs <- moduli$npcs
+  weight.by.var <- moduli$weight.by.var
+  
+  if(is.null(desc.file)){
+    
+    cells <- Cells(moduli$seurat)
+    scaled.data <- GetAssayData(moduli$seurat[[moduli$assay]], slot = "scale.data")
+    gene.clusters <- moduli$gene.clusters
+    points <- moduli$points
+    
+    if(filebacked){
+      embeddings <- filebacked.big.matrix(
+        nrow = length(cells)*npcs,
+        ncol = n.pts,
+        backingfile = "cons_embeddings.bin",
+        descriptorfile = "cons_embeddings.desc"
+      )
+      if(!persist) on.exit(file.remove("cons_embeddings.bin", "cons_embeddings.desc"))
+    } else {
+      embeddings <- big.matrix(
+        nrow = length(cells)*npcs,
+        ncol = n.pts,
+        shared = T
+      )
+    }
+    emb.descr <- describe(embeddings)
+    
+    cl <- parallel::makeCluster(n.cores)
+    registerDoParallel(cl)
+    on.exit(parallel::stopCluster(cl), add = T)
+    
+    # Building embeddings
+    if(verbose) message(paste(format(Sys.time(), "%a %b %d %X"),"Building embeddings"))
+    
+    foreach(
+      i = 1:n.pts,
+      .noexport = c("moduli", "cells"),
+      .packages = c("bigmemory", "irlba")
+    )%dopar%{
+      pt.pos <- which(points$id == point.ids[i])
+      feature.subset <- unique(unlist(gene.clusters$genes[points$clusters[[pt.pos]]]))
+      cell.embeddings <- .pca_aux(scaled.data, feature.subset, npcs, weight.by.var = weight.by.var,
+                                  scale = emb.metric, seed = seed)
+      emb <- attach.big.matrix(emb.descr)
+      emb[,i] <- c(cell.embeddings)
+    }
+    parallel::stopCluster(cl)
+    
+  } else {
+    emb.descr <- desc.file
+    cells <- moduli$cells
+  }
+  
+  
+  cl <- parallel::makeCluster(n.cores)
+  registerDoParallel(cl)
+  on.exit(parallel::stopCluster(cl))
+  
+  # Building consensus
+  if(verbose) message(paste(format(Sys.time(), "%a %b %d %X"),"Computing consensus metric"))
+  n.cells <- length(cells)
+  n.cell.pairs <- n.cells*(n.cells - 1)/2
+  pairs.per.core <- ceiling(n.cell.pairs/n.cores)
+  
+  consensus <- foreach(
+    i = 1:n.cores,
+    .noexport = c("seurat", "gene.clusters", "points"),
+    .packages = c("moduli", "bigmemory"),
+    .inorder = T,
+    .combine =  "c"
+  )%dopar%{
+    start <- pairs.per.core*(i - 1) + 1
+    end <- min(pairs.per.core*i, n.cell.pairs)
+    emb <- attach.big.matrix(emb.descr)
+    consensus_dist(emb@address, emb.metric, start, end, npcs)
+  }
+  
+  # formatting output
+  consensus.metric.matrix <- matrix(nrow = n.cells, ncol = n.cells)
+  consensus.metric.matrix[lower.tri(consensus.metric.matrix)] <- consensus
+  rownames(consensus.metric.matrix) <- cells
+  colnames(consensus.metric.matrix) <- cells
+  
+  return(as.dist(consensus.metric.matrix))
 }
 
 
@@ -162,7 +276,7 @@ run_pca <- function(moduli, point){
   }
   if(is.null(scale)) return(cell.embeddings)
   if(scale == "euclidean"){
-    pc.means <- apply(cell.embeddings, 2, mean)
+    pc.means <- colMeans(cell.embeddings)
     cell.embeddings <- t(t(cell.embeddings) - pc.means)
     total.var <- sum(cell.embeddings^2)/(nrow(cell.embeddings) - 1)
     cell.embeddings <- cell.embeddings*sqrt(npcs/total.var)

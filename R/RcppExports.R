@@ -5,3 +5,7 @@ partial_moduli_dist <- function(embeddings, emb_metric, moduli_metric, k1, k2, n
     .Call('_moduli_partial_moduli_dist', PACKAGE = 'moduli', embeddings, emb_metric, moduli_metric, k1, k2, npcs, stride)
 }
 
+consensus_dist <- function(embeddings, emb_metric, k1, k2, npcs) {
+    .Call('_moduli_consensus_dist', PACKAGE = 'moduli', embeddings, emb_metric, k1, k2, npcs)
+}
+
