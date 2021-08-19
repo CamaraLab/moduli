@@ -2,23 +2,21 @@
 % Please edit documentation in R/moduli_clustering.R
 \name{cluster_moduli_space}
 \alias{cluster_moduli_space}
-\title{Clusters moduli space using the Leiden algorithm}
+\title{Clusters moduli space using the Louvain or the Leiden algorithm}
 \usage{
 cluster_moduli_space(
   moduli,
-  resolution_parameter = 1,
-  partition_type = "RBConfigurationVertexPartition",
+  algoritm = c("Louvain", "Leiden"),
+  ...,
   enrich = T,
   thld = 0.05,
-  seed = 123,
-  ...
+  seed = 123
 )
 }
 \arguments{
 \item{moduli}{A moduli object with a graph in the \code{snn.graph} slot}
 
-\item{partition_type}{Type of partition to use (see \link[leiden]{leiden}), default value is
-"RBConfigurationVertexPartition"}
+\item{...}{Additional arguments passed to \link[leiden]{leiden}}
 
 \item{enrich}{Whether to enrich the analysis clusters with differentially expressed gene clusters
 by calling \link{enrich_analyis_clusters}. Default value is TRUE}
@@ -27,15 +25,13 @@ by calling \link{enrich_analyis_clusters}. Default value is TRUE}
 
 \item{seed}{Random seed, default value is 123}
 
-\item{...}{Additional arguments passed to \link[leiden]{leiden}}
-
-\item{resolution_paramenter}{Resolution passed to the Leiden algorithm (see \link[leiden]{leiden}), default
-value is 1}
+\item{algorithm}{Which algorithm to use, the options are "Louvain" and "Leiden", default value is
+"Louvain"}
 }
 \value{
 A moduli object with analysis clusters saved in the \code{analysis.clusters} slot.
 }
 \description{
-Create clusters of analysis (i.e. points in the moduli) by applying 
-\link[leiden]{leiden} to the snn graph of the moduli.
+Create clusters of analysis (i.e. clusters of points in the moduli) by applying 
+\link[igraph]{cluster_louvain} or \link[leiden]{leiden} to the snn graph of the moduli.
 }

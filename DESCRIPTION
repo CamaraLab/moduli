@@ -18,7 +18,6 @@ Imports:
     gprofiler2,
     igraph,
     irlba,
-    leiden,
     parallel,
     plotly,
     RColorBrewer,
@@ -28,6 +27,7 @@ Imports:
 LinkingTo: Rcpp, bigmemory, BH
 RoxygenNote: 7.1.1
 Suggests: 
+    leiden,
     RayleighSelection (>= 0.0.0.9000),
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
