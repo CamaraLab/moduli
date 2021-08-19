@@ -81,6 +81,46 @@ get_snn <- function(moduli, k, thld = 0.0){
   return(out)
 }
 
+#' Retrieves Seurat object associated to a point in the moduli space
+#' 
+#' Runs PCA with features associated to the given point, also enriches
+#' Seurat object with expression levels of each cluster in each cell
+#' 
+#' @param moduli A moduli object
+#' @param point.id Id of point
+#' 
+#' @returns A Seurat object with the PCA analysis associated to the point in the
+#' \code{reductions} slot and the average quantize-normalized expression level of
+#' each gene cluster in each cell saved in the slot "gene_cliuster_id_exp" of the object's
+#' meta data, where "id" is the id of the associated gene cluster.
+#'
+#' @export
+retrieve_point <- function(moduli, point.id){
+  seuratObject <- moduli$seurat
+  gene.clusters <- unlist(modili$points$clusters[moduli$points$id == point.id])
+  features <- unique(unlist(moduli$gene.clusters$genes[moduli$gene.clusters$id %in% gene.clusters]))
+  approx  <- (length(features) > 2*moduli$npcs)
+  seuratObject <- RunPCA(seuratObject, assay = moduli$assay, features = features,
+                    npcs = moduli$npcs, approx = approx,
+                    weight.by.var = moduli$weight.by.var, verbose = F)
+  
+  # enriching with gene cluster expression
+  data <- GetAssayData(seuratObject[[moduli$assay]], slot = "scale.data")
+  n.cells <- ncol(data)
+  gene.expression.levels <- t(apply(data, 1, rank))
+  gene.expression.levels <- gene.expression.levels/n.cells
+  
+  cls.expression.levels <- sapply(
+    moduli$gene.clusters$genes,
+    function(genes) colMeans(gene.expression.levels[genes, ,drop = F])
+  )
+  
+  names <- paste0("gene_cluster_", moduli$gene.clusters$id,"_expr")
+  for(i in 1:nrow(moduli$gene.clusters)){
+    seuratObject[[names[i]]] <- cls.expression.levels[,i]
+  }
+  return(seuratObject)
+}
 
 
 # keep?
