@@ -1,16 +1,4 @@
 
-# Remove eventually
-#' @export
-update_moduli <- function(moduli){
-  out <- moduli
-  out$gene.clusters <- data.frame(id = seq_along(moduli$gene.clusters))
-  out$gene.clusters$genes <- moduli$gene.clusters
-  
-  out$points <- data.frame(id = seq_along(moduli$points))
-  out$points$clusters <- moduli$points
-  return(out)
-}
-
 #' Retrieve ids of points
 #' 
 #' Retrieves ids of points using a set of gene clusters.
@@ -27,6 +15,13 @@ update_moduli <- function(moduli){
 #' points that have all elements of \code{gene.clusters}. The filter \code{"intersetcs"} retrieves
 #' ids of points that have any gene cluster in \code{gene.clusters}, and \code{"in_complement"}
 #' does the opposite, retrieving ids of points that only represent clusters not in \code{gene.clusters}.
+#' 
+#' @examples
+#' data("pbmc_small_moduli")
+#' 
+#' # id of point in the moduli that corresponds to the set of clusters c(1, 3)
+#' which_point(pbmc_small_moduli, c(1, 3))
+#' 
 #' 
 #' @export
 which_point <- function(moduli, gene.clusters,
@@ -52,15 +47,19 @@ which_point <- function(moduli, gene.clusters,
 #' @param points vector with ids of points to be retrieved, will retrieve all points by default
 #' 
 #' @return A data.frame with point ids, gene clusters represented and, if available,
-#' the analysis cluster the point belongs to
+#' the analysis cluster the point belongs to.
+#' 
+#' @examples
+#' data("pbmc_small_moduli")
+#' point_metadata(pbmc_small_moduli)
 #' 
 #' @export
 point_metadata <- function(moduli, points = moduli$points$id){
   out <- moduli$points[moduli$points$id %in% points,]
   if(!is.null(moduli$analysis.clusters)){
-    out$analysis.cluster <- integer(nrow(analysis.cluster))
+    out$analysis.cluster <- integer(nrow(out))
     for(i in 1:nrow(moduli$analysis.clusters)){
-      out$analysis.cluster[out$id == moduli$analysis.clusters$points[i]] <- moduli$analysis.clusters$id[i]
+      out$analysis.cluster[out$id %in% moduli$analysis.clusters$points[[i]]] <- moduli$analysis.clusters$id[i]
     }
   }
   return(out)
@@ -100,14 +99,20 @@ get_snn <- function(moduli, k, thld = 0.0){
 #' @param point.id Id of point
 #' 
 #' @returns A Seurat object with the PCA analysis associated to the point in the
-#' \code{reductions} slot and the average quantize-normalized expression level of
+#' \code{reductions} slot and the average quantile-normalized expression level of
 #' each gene cluster in each cell saved in the slot "gene_cliuster_id_exp" of the object's
 #' meta data, where "id" is the id of the associated gene cluster.
+#'
+#' @examples
+#' data("pbmc_small_moduli")
+#' 
+#' # retieveing point representing clusters 1 and 3
+#' pbmc_small <- retrieve_point(pbmc_small_moduli, which_point(pbmc_small_moduli, c(1, 3)))
 #'
 #' @export
 retrieve_point <- function(moduli, point.id){
   seuratObject <- moduli$seurat
-  gene.clusters <- unlist(modili$points$clusters[moduli$points$id == point.id])
+  gene.clusters <- unlist(moduli$points$clusters[moduli$points$id == point.id])
   features <- unique(unlist(moduli$gene.clusters$genes[moduli$gene.clusters$id %in% gene.clusters]))
   approx  <- (length(features) > 2*moduli$npcs)
   seuratObject <- RunPCA(seuratObject, assay = moduli$assay, features = features,
@@ -158,8 +163,16 @@ retrieve_point <- function(moduli, point.id){
 #' If no descriptor file is given, embedding will be calculated again, but all cells in the
 #' moduli's Seurat object will be represented in the output.
 #' 
+#' @examples
+#' data("pbmc_small_moduli")
+#' 
+#' # retrieving consensus metric of all embeddings containing cluster 3
+#' cons.metric <- retrieve_consensus(pbmc_small_moduli,
+#'                                  which_point(pbmc_small_moduli, 3, filter = "is_subset"))
+#'   
+#' 
 #' @export
-retrieve_consesus <- function(moduli, point.ids = NULL, analysis.cluster.ids = NULL,
+retrieve_consensus <- function(moduli, point.ids = NULL, analysis.cluster.ids = NULL,
                               desc.file = NULL, n.cores = 1, seed = 42,
                               filebacked = F, persist = F, verbose = T){
   

@@ -17,3 +17,8 @@ and ids of analysis clusters where they are differentially expressed (if present
 \description{
 Retrieves gene cluster metadata
 }
+\examples{
+data("pbmc_small_moduli")
+gene_cluster_metadata(pbmc_small_moduli)
+
+}

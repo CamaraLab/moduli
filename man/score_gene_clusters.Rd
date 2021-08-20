@@ -17,5 +17,12 @@ localized (largest laplacian score).
 }
 \description{
 Computes for each gene cluster the graph laplacian score of the function that indicates the
-presence of the gene cluster in the point, using the snn graph of the moduli.
+presence of the gene cluster in the point, using the snn graph of the moduli. Laplacian
+scores are computed using \link[RayleighSelection]{rayleigh_selection}.
+}
+\examples{
+data("pbmc_small_moduli")
+pbmc_small_moduli <- get_snn(pbmc_small_moduli, 4)
+pbmc_small_moduli <- score_gene_clusters(pbmc_small_moduli)
+
 }

@@ -13,8 +13,13 @@ point_metadata(moduli, points = moduli$points$id)
 }
 \value{
 A data.frame with point ids, gene clusters represented and, if available,
-the analysis cluster the point belongs to
+the analysis cluster the point belongs to.
 }
 \description{
 Retrieves metadata of moduli point
+}
+\examples{
+data("pbmc_small_moduli")
+point_metadata(pbmc_small_moduli)
+
 }

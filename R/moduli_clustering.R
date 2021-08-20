@@ -119,6 +119,12 @@ enrich_analysis_clusters <- function(moduli, thld = 0.05){
 #' @returns A data.frame with ids, sizes, and, if available, expressed gene clusters and associated
 #' p-values of each analysis cluster.
 #' 
+#' @examples
+#' data("pbmc_small_moduli")
+#' pbmc_small_moduli <- get_snn(pbmc_small_moduli, 4)
+#' pbmc_small_moduli <- cluster_moduli_space(pbmc_small_moduli)
+#' analysis_cluster_metadata(pbmc_small_moduli)
+#' 
 #' @export
 analysis_cluster_metadata <- function(moduli){
   out <- data.frame(id = moduli$analysis.clusters$id)

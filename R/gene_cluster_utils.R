@@ -42,6 +42,10 @@ find_genes <- function(moduli, genes, ignore.case = T){
 #' saved to moduli$gene.clusters$term.names and moduli$gene.clusters$term.p.values
 #' respectively, ordered by significance.
 #' 
+#' @examples 
+#' data("pbmc_small_moduli")
+#' pbmc_small_moduli <- annotate_gene_clusters(pbmc_small_moduli, organism = "hsapiens")
+#' 
 #' @export
 annotate_gene_clusters <- function(moduli, organism, n.terms = 3, user_threshold = 0.01, ...){
   result <- gprofiler2::gost(moduli$gene.clusters$genes, organism = organism,
@@ -56,23 +60,29 @@ annotate_gene_clusters <- function(moduli, organism, n.terms = 3, user_threshold
     p.vals[[i]] <- p[pos]
     term.names[[i]] <- tn[pos]
   }
-  out <- moduli
-  out$gene.clusters$term.names <- term.names
-  out$gene.clusters$term.p.vals <- p.vals
-  return(out)
+  moduli$gene.clusters$term.names <- term.names
+  moduli$gene.clusters$term.p.vals <- p.vals
+  return(moduli)
 }
 
 
 #' Enriches gene clusters with laplacian scores
 #' 
 #' Computes for each gene cluster the graph laplacian score of the function that indicates the
-#' presence of the gene cluster in the point, using the snn graph of the moduli.
+#' presence of the gene cluster in the point, using the snn graph of the moduli. Laplacian
+#' scores are computed using \link[RayleighSelection]{rayleigh_selection}.
 #' 
 #' @param moduli A moduli object with a graph in the \code{snn.graph} slot
 #' @return A moduli object with laplacian scores and the rank of the gene cluster 
 #' laplacian score saved in \code{gene.clusters$laplacian.score} and \code{gene.clusters$rank}
 #' slots, respectively. The rank goes from most localized (smallest laplacian score) to least
 #' localized (largest laplacian score).
+#' 
+#' 
+#' @examples
+#' data("pbmc_small_moduli")
+#' pbmc_small_moduli <- get_snn(pbmc_small_moduli, 4)
+#' pbmc_small_moduli <- score_gene_clusters(pbmc_small_moduli)
 #' 
 #' @export
 score_gene_clusters <- function(moduli){
@@ -92,10 +102,9 @@ score_gene_clusters <- function(moduli){
     clique = F
   )
   scores <- RayleighSelection::rayleigh_selection(cplx, f, num_perms = 1, one_forms = F)$R0
-  out <- moduli
-  out$gene.clusters$laplacian.score <- scores
-  out$gene.clusters$rank <- rank(scores)
-  return(out)
+  moduli$gene.clusters$laplacian.score <- scores
+  moduli$gene.clusters$rank <- rank(scores)
+  return(moduli)
 }
 
 
@@ -105,6 +114,10 @@ score_gene_clusters <- function(moduli){
 #' @return A data.frame with the ids of gene clusters, their sizes, names of expressed
 #' terms and associated p-values (if present), laplacian score and associated rank (if present)
 #' and ids of analysis clusters where they are differentially expressed (if present).
+#' 
+#' @examples 
+#' data("pbmc_small_moduli")
+#' gene_cluster_metadata(pbmc_small_moduli)
 #' 
 #' @export
 gene_cluster_metadata <- function(moduli){

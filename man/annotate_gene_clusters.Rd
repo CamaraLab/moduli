@@ -33,3 +33,8 @@ respectively, ordered by significance.
 Enriches gene clusters with most significant terms according to g:OSt by
 using \link[gprofiler2]{gost}.
 }
+\examples{
+data("pbmc_small_moduli")
+pbmc_small_moduli <- annotate_gene_clusters(pbmc_small_moduli, organism = "hsapiens")
+
+}

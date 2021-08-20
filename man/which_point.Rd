@@ -31,3 +31,11 @@ points that have all elements of \code{gene.clusters}. The filter \code{"interse
 ids of points that have any gene cluster in \code{gene.clusters}, and \code{"in_complement"}
 does the opposite, retrieving ids of points that only represent clusters not in \code{gene.clusters}.
 }
+\examples{
+data("pbmc_small_moduli")
+
+# id of point in the moduli that corresponds to the set of clusters c(1, 3)
+which_point(pbmc_small_moduli, c(1, 3))
+
+
+}

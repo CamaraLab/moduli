@@ -16,3 +16,10 @@ p-values of each analysis cluster.
 \description{
 Retrieved analysis cluster metadata
 }
+\examples{
+data("pbmc_small_moduli")
+pbmc_small_moduli <- get_snn(pbmc_small_moduli, 4)
+pbmc_small_moduli <- cluster_moduli_space(pbmc_small_moduli)
+analysis_cluster_metadata(pbmc_small_moduli)
+
+}
