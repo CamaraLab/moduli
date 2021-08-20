@@ -66,19 +66,24 @@ point_metadata <- function(moduli, points = moduli$points$id){
   return(out)
 }
 
-#' Enriches moduli with its shared nearest neighbors graph
+#' Enriches moduli object with its shared nearest neighbors graph
+#' 
+#' Finds a k-nearest neighbors graph representing the moduli space, computes the
+#' Jaccard similarity matrix of this graph and uses this matrix as edge weights 
+#' to construct a second graph that is saved in the moduli object.
 #' 
 #' @param moduli A moduli object
 #' @param k Number of nearest neighbors
-#' @param thld Minimum of edges weights to be kept
+#' @param thld Weight threhold for graph pruning, edges with weight less than the given
+#' value are removed before forming the snn graph. Default value is 0.0
 #' 
 #' @return A moduli object with an snn graph in the \code{snn.graph} slot.
+#' 
 #' @export
 get_snn <- function(moduli, k, thld = 0.0){
   snn.graph <- .create_snn(moduli$metric, k, thld)
-  out <- moduli
-  out$snn.graph <- snn.graph
-  return(out)
+  moduli$snn.graph <- snn.graph
+  return(moduli)
 }
 
 #' Retrieves Seurat object associated to a point in the moduli space
@@ -249,6 +254,8 @@ retrieve_consesus <- function(moduli, point.ids = NULL, analysis.cluster.ids = N
   return(as.dist(consensus.metric.matrix))
 }
 
+# Runs PCA and scales result depending on the embedding metric that will be used 
+# (a translation and homotety for "euclidean" and a projection to the sphere if "cosine")
 
 .pca_aux <- function(scaled.data, feature.subset, npcs, weight.by.var= T, scale = NULL, seed = 42){
   set.seed(seed)
@@ -288,22 +295,27 @@ retrieve_consesus <- function(moduli, point.ids = NULL, analysis.cluster.ids = N
   }
 }
 
+# creates a knn graph, computes its Jaccard similarity matrix and uses this matrix
+# to define a new graph
+
 .create_snn <- function(dist, k, thld = 0.0){
-  snn <- dbscan::kNN(dist, k)
-  id <- snn$id
+  knn <- dbscan::kNN(dist, k)
+  id <- knn$id
   n.vertices <- nrow(id)
   rows <- 1:n.vertices
   neighbors <- matrix(0, nrow = n.vertices, ncol = n.vertices)
   
-  for (col in 1:k) neighbors[cbind(rows, id[,col])] <- 1
+  for(col in 1:k){
+    neighbors[cbind(rows, id[,col])] <- 1
+    neighbors[cbind(id[,col], rows)] <- 1
+  }
   
-  diag(neighbors) <- 1
-  
-  adjacency <- neighbors %*% t(neighbors)
-  adjacency[adjacency > 0] <- adjacency[adjacency > 0] / (2*k + 2 - adjacency[adjacency > 0])
-  
+  knn.graph <- igraph::graph_from_adjacency_matrix(neighbors, mode = "undirected")
+  jaccard.sim <- igraph::similarity.jaccard(knn.graph, loops = T)
+  jaccard.sim[jaccard.sim < thld] <- 0.0
+
   snn.graph <- igraph::graph_from_adjacency_matrix(
-    adjacency,
+    jaccard.sim,
     mode = "undirected",
     weighted = T,
     diag = F

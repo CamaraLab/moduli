@@ -2,7 +2,7 @@
 % Please edit documentation in R/utilities.R
 \name{get_snn}
 \alias{get_snn}
-\title{Enriches moduli with its shared nearest neighbors graph}
+\title{Enriches moduli object with its shared nearest neighbors graph}
 \usage{
 get_snn(moduli, k, thld = 0)
 }
@@ -11,11 +11,14 @@ get_snn(moduli, k, thld = 0)
 
 \item{k}{Number of nearest neighbors}
 
-\item{thld}{Minimum of edges weights to be kept}
+\item{thld}{Weight threhold for graph pruning, edges with weight less than the given
+value are removed before forming the snn graph. Default value is 0.0}
 }
 \value{
 A moduli object with an snn graph in the \code{snn.graph} slot.
 }
 \description{
-Enriches moduli with its shared nearest neighbors graph
+Finds a k-nearest neighbors graph representing the moduli space, computes the
+Jaccard similarity matrix of this graph and uses this matrix as edge weights 
+to construct a second graph that is saved in the moduli object.
 }
