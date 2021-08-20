@@ -15,6 +15,15 @@
 #' @return A plotly visualization. Hover text contains metadata about points. If analysis clusters are
 #' enriched, differentially expressed gene clusters are marked with an asterisk.
 #' 
+#' @examples 
+#' data("pbmc_small_moduli")
+#' 
+#' # clustering analysis, this is not necessary by enriches the visualization
+#' pbmc_small_moduli <- get_snn(pbmc_small_moduli, 4)
+#' pbmc_small_moduli <- cluster_moduli_space(pbmc_small_moduli)
+#' 
+#' # plotting 
+#' visualize_moduli_space(pbmc_small_moduli)
 #' 
 #' @export
 visualize_moduli_space <- function(moduli, n_neighbors = 15, mark.points = NULL,
@@ -174,8 +183,11 @@ visualize_moduli_space <- function(moduli, n_neighbors = 15, mark.points = NULL,
 #' @param seed Random seed, default value is 123
 #' @param ... Additional parameters passed to \link[uwot]{umap}
 #' 
-#' @return A plotly visualization. Hover text contains metadata about genes.
+#' @return A plotly visualization. Hover text contains about genes and gene clusters.
 #' 
+#' @examples 
+#' data("pbmc_small_moduli")
+#' visualize_gene_space(pbmc_small_moduli)
 #' 
 #' @export
 visualize_gene_space <- function(moduli, n_neighbors = 15, color.clusters = NULL,
@@ -233,7 +245,25 @@ visualize_gene_space <- function(moduli, n_neighbors = 15, color.clusters = NULL
   data$partition <- factor(partition.factors, levels = c(paste("gene cluster", color.clusters), "others"))
   
   # setting up hover text
-  txt <- paste0(gene.names, "<br>gene cluster:", membership)
+  txt <- paste0(gene.names, "<br>gene cluster: ", membership)
+  # add laplacian scores
+  if(!is.null(moduli$gene.cluster$laplacian.score)){
+    ls <- numeric(length(membership))
+    for(i in 1:nrow(moduli$gene.clusters)){
+      ls[membership == moduli$gene.clusters$id[i]] <- moduli$gene.cluster$laplacian.score[i]
+    }
+    txt <- paste0(txt, "<br>cluster laplacian score: ", ls)
+  }
+  # add top term name
+  if(!is.null(moduli$gene.cluster$term.names)){
+    tn <- character(length(membership))
+    for(i in 1:nrow(moduli$gene.clusters)){
+      if(length(moduli$gene.cluster$term.names[[i]]) > 0){
+        tn[membership == moduli$gene.clusters$id[i]] <- moduli$gene.cluster$term.names[[i]][1]
+      }
+    }
+    txt <- paste0(txt, "<br>cluster top term: ", tn)
+  }
   
   # colors
   if(length(color.clusters) >= 3){

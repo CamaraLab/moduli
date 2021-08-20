@@ -106,7 +106,7 @@ get_snn <- function(moduli, k, thld = 0.0){
 #' @examples
 #' data("pbmc_small_moduli")
 #' 
-#' # retieveing point representing clusters 1 and 3
+#' # retrieving point representing clusters 1 and 3
 #' pbmc_small <- retrieve_point(pbmc_small_moduli, which_point(pbmc_small_moduli, c(1, 3)))
 #'
 #' @export
@@ -155,7 +155,7 @@ retrieve_point <- function(moduli, point.id){
 #' Default value is FALSE
 #' @param verbose Print time stamps, default value is TRUE
 #' 
-#' @returns A "dist" object with avereged cell distances and cell labels
+#' @returns A "dist" object with averaged cell distances and cell labels
 #' 
 #' @details 
 #' If a descriptor file is given, pre-calculated embeddings will be used.

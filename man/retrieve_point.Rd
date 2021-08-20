@@ -24,7 +24,7 @@ Seurat object with expression levels of each cluster in each cell
 \examples{
 data("pbmc_small_moduli")
 
-# retieveing point representing clusters 1 and 3
+# retrieving point representing clusters 1 and 3
 pbmc_small <- retrieve_point(pbmc_small_moduli, which_point(pbmc_small_moduli, c(1, 3)))
 
 }
