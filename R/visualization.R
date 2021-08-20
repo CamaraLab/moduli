@@ -1,16 +1,38 @@
+#' Runs UMAP on moduli space
+#' 
+#' Computes a 2-d UMAP representation of the moduli space using \link[uwot]{umap}.
+#' 
+#' @param moduli A moduli object
+#' @param n_neighbors Size of local neighborhood of umap (see \link[uwot]{umap}), defaults to 15
+#' @param ... Additional parameters passed to \link[uwot]{umap}
+#' @param seed Random seed, default value is 123
+#' 
+#' @return A moduli object with a umap representation saved to the \code{moduli.umap} slot
+#' 
+#' @examples 
+#' data("pbmc_small_moduli")
+#' 
+#' pbmc_small_moduli <- run_umap_moduli(pbmc_small_moduli)
+#' 
+#' @export
+run_umap_moduli <- function(moduli, n_neighbors = 15, ..., seed = 123){
+  set.seed(seed)
+  moduli$moduli.umap <- uwot::umap(moduli$metric, n_neighbors = n_neighbors,
+                                   n_components = 2, ...)
+  return(moduli)
+}
+
+
 #' Interactive UMAP plot of moduli space
 #' 
 #' Plot UMAP of moduli space, coloring analysis clusters and marking given points.
 #' 
-#' @param moduli A moduli object
-#' @param n_neighbors Size of local neighborhood of umap (see \link[uwot]{umap}), defaults to 15
+#' @param moduli A moduli object with a umap representation of the moduli space
 #' @param mark.points Integer vector with ids of points to mark with "x", all points are marked with a circle if NULL.
 #' Default value is NULL
 #' @param color.clusters Vector with ids of analysis clusters to be colored, can only color 12 clusters. If NULL
 #' the first 12 analysis clusters are colored. Default value is NULL
 #' @param title Title of plot, dafault value is "UMAP plot of moduli space"
-#' @param seed Random seed, default value is 123
-#' @param ... Additional paramenters passed to \link[uwot]{umap}
 #' 
 #' @return A plotly visualization. Hover text contains metadata about points. If analysis clusters are
 #' enriched, differentially expressed gene clusters are marked with an asterisk.
@@ -22,14 +44,16 @@
 #' pbmc_small_moduli <- get_snn(pbmc_small_moduli, 4)
 #' pbmc_small_moduli <- cluster_moduli_space(pbmc_small_moduli)
 #' 
-#' # plotting 
+#' # plotting
+#' pbmc_small_moduli <- run_umap_moduli(pbmc_small_moduli)
 #' visualize_moduli_space(pbmc_small_moduli)
 #' 
 #' @export
-visualize_moduli_space <- function(moduli, n_neighbors = 15, mark.points = NULL,
-                                   color.clusters = NULL, title = "UMAP plot of moduli space",
-                                   seed = 123, ...){
-  
+visualize_moduli_space <- function(moduli, mark.points = NULL, color.clusters = NULL,
+                                   title = "UMAP plot of moduli space"){
+  if(is.null(moduli$moduli.umap)){
+    stop("Error: Use run_umap_moduli before plotting")
+  }
   
   if(!is.null(moduli$analysis.clusters) &&  is.null(color.clusters)){
     color.clusters <- sort(moduli$analysis.clusters$id)
@@ -41,12 +65,9 @@ visualize_moduli_space <- function(moduli, n_neighbors = 15, mark.points = NULL,
     color.clusters <- color.clusters[1:12]
   }
   
-  
-  set.seed(seed)
-  umap.coords <- uwot::umap(moduli$metric, n_neighbors = n_neighbors, ...)
   data = data.frame(
-    UMAP_1 = umap.coords[,1],
-    UMAP_2 = umap.coords[,2]
+    UMAP_1 = moduli$moduli.umap[,1],
+    UMAP_2 = moduli$moduli.umap[,2]
   )
   # setting up factors
   if(!is.null(mark.points)){
@@ -165,34 +186,72 @@ visualize_moduli_space <- function(moduli, n_neighbors = 15, mark.points = NULL,
 
 
 
+#' Runs UMAP on gene space
+#' 
+#' Computes a 2-d UMAP representation of the gene space using \link[uwot]{umap}.
+#' 
+#' @param moduli A moduli object
+#' @param metric Metric in gene space to use as a dist object, the object must have the names of the genes. If
+#' NULL, the correlation metric based on the \code{"scale.data"} slot of \code{moduli$seurat[[moduli$assay]]}
+#' will be used. Default value is NULL
+#' @param n_neighbors Size of local neighborhood of umap (see \link[uwot]{umap}), defaults to 15
+#' @param ... Additional parameters passed to \link[uwot]{umap}
+#' @param seed Random seed, default value is 123
+#' 
+#' @return A moduli object with a umap representation saved to the \code{gene.umap} slot
+#' 
+#' @examples 
+#' data("pbmc_small_moduli")
+#' 
+#' pbmc_small_moduli <- run_umap_genes(pbmc_small_moduli)
+#' 
+#' @export
+run_umap_genes <- function(moduli, metric = NULL, n_neighbors = 15, ..., seed = 123){
+  set.seed(seed)
+  if(is.null(metric)){
+    gene.exp <- t(FetchData(moduli$seurat[[moduli$assay]],
+                            vars = unique(unlist(moduli$gene.clusters$genes)),
+                            slot = "scale.data"))
+    gene.names <- rownames(gene.exp)
+    umap.coords <- uwot::umap(gene.exp, n_neighbors = n_neighbors, n_components = 2, 
+                              metric = "correlation", ...)
+  }else{
+    gene.names <- rownames(as.matrix(metric))
+    umap.coords <- uwot::umap(metric, n_neighbors = n_neighbors, n_components = 2, ...)
+  }
+  rownames(umap.coords) <- gene.names
+  moduli$gene.umap <- umap.coords
+  return(moduli)
+}
+
+
+
 #' Interactive UMAP plot of gene space
 #' 
 #' Plot UMAP of gene space, coloring gene clusters and marking given genes.
 #' 
-#' @param moduli A moduli object
-#' @param n_neighbors Size of local neighborhood of umap (see \link[uwot]{umap}), defaults to 15
+#' @param moduli A moduli object with a umap representation of gene space
 #' @param color.clusters Vector with ids of gene clusters to be colored, can only color 12 clusters. If NULL
 #' the first 12 gene clusters are colored. Default value is NULL
 #' @param mark.genes Integer vector with names of genes to mark with "x", all points are marked with a circle if NULL.
 #' Default value is NULL
 #' @param ignore.case Whether to ignore case for genes given to mark.genes, default value is FALSE
-#' @param metric Metric in gene space to use as a dist object, the object must have the names of the genes. If
-#' NULL the correlation metric based on the \code{"scale.data"} slot of \code{moduli$seurat[[moduli$assay]]} is used.
-#' Default value is NULL
 #' @param title Title of plot, default value is "UMAP plot of gene space"
-#' @param seed Random seed, default value is 123
-#' @param ... Additional parameters passed to \link[uwot]{umap}
 #' 
 #' @return A plotly visualization. Hover text contains about genes and gene clusters.
 #' 
 #' @examples 
 #' data("pbmc_small_moduli")
+#' 
+#' pbmc_small_moduli <- run_umap_genes(pbmc_small_moduli)
 #' visualize_gene_space(pbmc_small_moduli)
 #' 
 #' @export
-visualize_gene_space <- function(moduli, n_neighbors = 15, color.clusters = NULL,
-                                 mark.genes = NULL, ignore.case = F, metric = NULL,
-                                 title = "UMAP plot of gene space", seed = 123, ...){
+visualize_gene_space <- function(moduli, color.clusters = NULL, mark.genes = NULL,
+                                 ignore.case = F, title = "UMAP plot of gene space"){
+  if(is.null(moduli$gene.umap)){
+    stop("Error: Use run_umap_gene before plotting")
+  }
 
   if(is.null(color.clusters)){
     color.clusters <- sort(moduli$gene.clusters$id)
@@ -203,22 +262,11 @@ visualize_gene_space <- function(moduli, n_neighbors = 15, color.clusters = NULL
     color.clusters <- color.clusters[1:12]
   }
   
-  set.seed(seed)
-  if(is.null(metric)){
-    gene.exp <- t(FetchData(moduli$seurat[[moduli$assay]],
-                            vars = unique(unlist(moduli$gene.clusters$genes)),
-                            slot = "scale.data"))
-    gene.names <- rownames(gene.exp)
-    umap.coords <- uwot::umap(gene.exp, n_neighbors = n_neighbors, metric = "correlation", ...)
-  }else{
-    gene.names <- rownames(as.matrix(gene.exp))
-    umap.coords <- uwot::umap(metric, n_neighbors = n_neighbors, ...)
-  }
-  
   data = data.frame(
-    UMAP_1 = umap.coords[,1],
-    UMAP_2 = umap.coords[,2]
+    UMAP_1 = moduli$gene.umap[,1],
+    UMAP_2 = moduli$gene.umap[,2]
   )
+  gene.names <- rownames(moduli$gene.umap)
   
   # marking points
   if(!is.null(mark.genes)){

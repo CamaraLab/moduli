@@ -40,7 +40,7 @@ Default value is FALSE}
 \item{verbose}{Print time stamps, default value is TRUE}
 }
 \value{
-A "dist" object with avereged cell distances and cell labels
+A "dist" object with averaged cell distances and cell labels
 }
 \description{
 Computes the average distance between cell pairs across a set of embeddings

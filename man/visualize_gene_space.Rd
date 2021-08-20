@@ -6,20 +6,14 @@
 \usage{
 visualize_gene_space(
   moduli,
-  n_neighbors = 15,
   color.clusters = NULL,
   mark.genes = NULL,
   ignore.case = F,
-  metric = NULL,
-  title = "UMAP plot of gene space",
-  seed = 123,
-  ...
+  title = "UMAP plot of gene space"
 )
 }
 \arguments{
-\item{moduli}{A moduli object}
-
-\item{n_neighbors}{Size of local neighborhood of umap (see \link[uwot]{umap}), defaults to 15}
+\item{moduli}{A moduli object with a umap representation of gene space}
 
 \item{color.clusters}{Vector with ids of gene clusters to be colored, can only color 12 clusters. If NULL
 the first 12 gene clusters are colored. Default value is NULL}
@@ -29,19 +23,18 @@ Default value is NULL}
 
 \item{ignore.case}{Whether to ignore case for genes given to mark.genes, default value is FALSE}
 
-\item{metric}{Metric in gene space to use as a dist object, the object must have the names of the genes. If
-NULL the correlation metric based on the \code{"scale.data"} slot of \code{moduli$seurat[[moduli$assay]]} is used.
-Default value is NULL}
-
 \item{title}{Title of plot, default value is "UMAP plot of gene space"}
-
-\item{seed}{Random seed, default value is 123}
-
-\item{...}{Additional parameters passed to \link[uwot]{umap}}
 }
 \value{
-A plotly visualization. Hover text contains metadata about genes.
+A plotly visualization. Hover text contains about genes and gene clusters.
 }
 \description{
 Plot UMAP of gene space, coloring gene clusters and marking given genes.
+}
+\examples{
+data("pbmc_small_moduli")
+
+pbmc_small_moduli <- run_umap_genes(pbmc_small_moduli)
+visualize_gene_space(pbmc_small_moduli)
+
 }

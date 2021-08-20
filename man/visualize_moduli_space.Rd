@@ -6,18 +6,13 @@
 \usage{
 visualize_moduli_space(
   moduli,
-  n_neighbors = 15,
   mark.points = NULL,
   color.clusters = NULL,
-  title = "UMAP plot of moduli space",
-  seed = 123,
-  ...
+  title = "UMAP plot of moduli space"
 )
 }
 \arguments{
-\item{moduli}{A moduli object}
-
-\item{n_neighbors}{Size of local neighborhood of umap (see \link[uwot]{umap}), defaults to 15}
+\item{moduli}{A moduli object with a umap representation of the moduli space}
 
 \item{mark.points}{Integer vector with ids of points to mark with "x", all points are marked with a circle if NULL.
 Default value is NULL}
@@ -26,10 +21,6 @@ Default value is NULL}
 the first 12 analysis clusters are colored. Default value is NULL}
 
 \item{title}{Title of plot, dafault value is "UMAP plot of moduli space"}
-
-\item{seed}{Random seed, default value is 123}
-
-\item{...}{Additional paramenters passed to \link[uwot]{umap}}
 }
 \value{
 A plotly visualization. Hover text contains metadata about points. If analysis clusters are
@@ -37,4 +28,16 @@ enriched, differentially expressed gene clusters are marked with an asterisk.
 }
 \description{
 Plot UMAP of moduli space, coloring analysis clusters and marking given points.
+}
+\examples{
+data("pbmc_small_moduli")
+
+# clustering analysis, this is not necessary by enriches the visualization
+pbmc_small_moduli <- get_snn(pbmc_small_moduli, 4)
+pbmc_small_moduli <- cluster_moduli_space(pbmc_small_moduli)
+
+# plotting
+pbmc_small_moduli <- run_umap_moduli(pbmc_small_moduli)
+visualize_moduli_space(pbmc_small_moduli)
+
 }
