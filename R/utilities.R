@@ -79,6 +79,11 @@ point_metadata <- function(moduli, points = moduli$points$id){
 #' 
 #' @return A moduli object with an snn graph in the \code{snn.graph} slot.
 #' 
+#' @examples 
+#' data("pbmc_small_moduli")
+#' pbmc_small_moduli <- get_snn(pbmc_small_moduli, 4)
+#' 
+#' 
 #' @export
 get_snn <- function(moduli, k, thld = 0.0){
   snn.graph <- .create_snn(moduli$metric, k, thld)

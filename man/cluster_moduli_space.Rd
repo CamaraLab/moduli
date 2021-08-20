@@ -35,3 +35,9 @@ A moduli object with analysis clusters saved in the \code{analysis.clusters} slo
 Create clusters of analysis (i.e. clusters of points in the moduli) by applying 
 \link[igraph]{cluster_louvain} or \link[leiden]{leiden} to the snn graph of the moduli.
 }
+\examples{
+data("pbmc_small_moduli")
+pbmc_small_moduli <- get_snn(pbmc_small_moduli, 4)
+pbmc_small_moduli <- cluster_moduli_space(pbmc_small_moduli)
+
+}

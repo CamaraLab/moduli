@@ -22,3 +22,9 @@ Finds a k-nearest neighbors graph representing the moduli space, computes the
 Jaccard similarity matrix of this graph and uses this matrix as edge weights 
 to construct a second graph that is saved in the moduli object.
 }
+\examples{
+data("pbmc_small_moduli")
+pbmc_small_moduli <- get_snn(pbmc_small_moduli, 4)
+
+
+}

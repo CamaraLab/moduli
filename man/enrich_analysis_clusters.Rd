@@ -20,3 +20,11 @@ respectively, ordered by of significance.
 Applies Fisher's exact test to find differentially expressed gene clusters in
 each cluster of analysis.
 }
+\examples{
+data("pbmc_small_moduli")
+pbmc_small_moduli <- get_snn(pbmc_small_moduli, 4)
+pbmc_small_moduli <- cluster_moduli_space(pbmc_small_moduli, enrich = F)
+pbmc_small_moduli <- enrich_analysis_clusters(pbmc_small_moduli)
+
+
+}

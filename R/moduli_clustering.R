@@ -16,6 +16,11 @@
 #' 
 #' @return A moduli object with analysis clusters saved in the \code{analysis.clusters} slot.
 #' 
+#' @examples
+#' data("pbmc_small_moduli")
+#' pbmc_small_moduli <- get_snn(pbmc_small_moduli, 4)
+#' pbmc_small_moduli <- cluster_moduli_space(pbmc_small_moduli)
+#' 
 #' @export
 cluster_moduli_space <- function(moduli, algoritm = c("Louvain", "Leiden"), ...,
                                  enrich = T, thld = 0.05, seed = 123){
@@ -23,7 +28,7 @@ cluster_moduli_space <- function(moduli, algoritm = c("Louvain", "Leiden"), ...,
     stop("Error: snn graph required, run get_snn first")
   }
   algoritm <- match.arg(algoritm)
-  if(algoritm == "Louvian"){
+  if(algoritm == "Louvain"){
     set.seed(seed)
     communities <- igraph::cluster_louvain(moduli$snn.graph)
     membership <- communities$membership
@@ -34,14 +39,14 @@ cluster_moduli_space <- function(moduli, algoritm = c("Louvain", "Leiden"), ...,
     membership <- leiden::leiden( moduli$snn.graph, seed = seed, ...)
   }
   
-  out <- moduli
-  out$analysis.clusters <- data.frame(id = sort(unique(membership)))
-  out$analysis.clusters$points <- lapply(out$analysis.clusters$id,
-                                           function(p) out$points$id[membership == p])
+  moduli <- moduli
+  moduli$analysis.clusters <- data.frame(id = sort(unique(membership)))
+  moduli$analysis.clusters$points <- lapply(moduli$analysis.clusters$id,
+                                           function(p) moduli$points$id[membership == p])
   
-  if(enrich) out <- enrich_analysis_clusters(out, thld)
+  if(enrich) moduli <- enrich_analysis_clusters(moduli, thld)
   
-  return(out)
+  return(moduli)
 }
 
 #' Enriches analysis clusters with differentially expressed gene clusters
@@ -54,6 +59,12 @@ cluster_moduli_space <- function(moduli, algoritm = c("Louvain", "Leiden"), ...,
 #' @return A moduli object with diffentially expressed gene clusters and associated p-values
 #' saved in the \code{analysis.clusters$exp.gene.clusters} and \code{analysis.clusters$enrichment.p.vals}
 #' respectively, ordered by of significance.
+#' 
+#' @examples
+#' data("pbmc_small_moduli")
+#' pbmc_small_moduli <- get_snn(pbmc_small_moduli, 4)
+#' pbmc_small_moduli <- cluster_moduli_space(pbmc_small_moduli, enrich = F)
+#' pbmc_small_moduli <- enrich_analysis_clusters(pbmc_small_moduli)
 #' 
 #' 
 #' @export
@@ -97,10 +108,9 @@ enrich_analysis_clusters <- function(moduli, thld = 0.05){
     exp.gene.clusters[[i]] <- exp.gene.clusters[[i]][order(enrichment.p.vals[[i]])]
     enrichment.p.vals[[i]] <- sort(enrichment.p.vals[[i]])
   }
-  out <- moduli
-  out$analysis.clusters$exp.gene.clusters <- exp.gene.clusters
-  out$analysis.clusters$enrichment.p.vals <- enrichment.p.vals
-  return(out)
+  moduli$analysis.clusters$exp.gene.clusters <- exp.gene.clusters
+  moduli$analysis.clusters$enrichment.p.vals <- enrichment.p.vals
+  return(moduli)
 }
 
 #' Retrieved analysis cluster metadata
