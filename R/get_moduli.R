@@ -183,6 +183,7 @@ get_moduli <- function(seuratObject, gene.membership = NULL, gene.clusters = NUL
     }
     stats
   }
+  dist.stats <- unname(dist.stats)
   
   parallel::stopCluster(cl)
   cl <- parallel::makeCluster(n.cores)
@@ -209,6 +210,8 @@ get_moduli <- function(seuratObject, gene.membership = NULL, gene.clusters = NUL
   }
  
   metric.matrix <- matrix(nrow = n.pts, ncol = n.pts)
+  colnames(metric.matrix) <- points$id
+  rownames(metric.matrix) <- points$id
   if(moduli.metric == "l1"){
     metric.matrix[lower.tri(metric.matrix)] <- metric/n.cell.pairs
     metric <- as.dist(metric.matrix) 
