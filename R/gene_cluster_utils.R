@@ -69,8 +69,7 @@ annotate_gene_clusters <- function(moduli, organism, n.terms = 3, user_threshold
 #' Enriches gene clusters with laplacian scores
 #' 
 #' Computes for each gene cluster the graph laplacian score of the function that indicates the
-#' presence of the gene cluster in the point, using the snn graph of the moduli. Laplacian
-#' scores are computed using \link[RayleighSelection]{rayleigh_selection}.
+#' presence of the gene cluster in the point, using the snn graph of the moduli.
 #' 
 #' @param moduli A moduli object with a graph in the \code{snn.graph} slot
 #' @return A moduli object with laplacian scores and the rank of the gene cluster 
@@ -86,9 +85,6 @@ annotate_gene_clusters <- function(moduli, organism, n.terms = 3, user_threshold
 #' 
 #' @export
 score_gene_clusters <- function(moduli){
-  if(!requireNamespace("RayleighSelection", quietly = TRUE)){
-    stop("Error: package CamaraLab/RayleighSelection required")
-  }
   if(is.null(moduli$snn.graph)){
     stop("Error: snn graph required, run get_snn first")
   }
@@ -97,11 +93,16 @@ score_gene_clusters <- function(moduli){
     f[moduli$gene.clusters$id %in% moduli$points$clusters[[i]], i] <- 1
   }
   
-  cplx <- RayleighSelection::graph_to_complex(
-    igraph::as_adjacency_matrix(moduli$snn.graph, attr="weight"),
-    clique = F
-  )
-  scores <- RayleighSelection::rayleigh_selection(cplx, f, num_perms = 1, one_forms = F)$R0
+  laplacian <- igraph::laplacian_matrix(moduli$snn.graph)
+  adj <- igraph::as_adj(moduli$snn.graph, attr = "weight")
+  vtx.weigts <- as.numeric(adj %*% rep(1, nrow(adj)))
+  length.cons.sq <- sum(vtx.weigts)
+  
+  # computing projection on space orthogonal to constants
+  f <- f - as.numeric(f%*%(vtx.weigts / length.cons.sq))
+  
+  scores <- colSums(t(as.matrix((f %*% laplacian) * f))*vtx.weigts)/(colSums((t(f)^2)*vtx.weigts))
+
   moduli$gene.clusters$laplacian.score <- scores
   moduli$gene.clusters$rank <- rank(scores)
   return(moduli)

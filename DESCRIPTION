@@ -28,10 +28,7 @@ LinkingTo: Rcpp, bigmemory, BH
 RoxygenNote: 7.1.1
 Suggests: 
     leiden,
-    RayleighSelection (>= 0.0.0.9000),
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
-Remotes: 
-    CamaraLab/RayleighSelection
 Depends: 
     R (>= 2.10)
