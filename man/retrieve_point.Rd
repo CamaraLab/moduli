@@ -14,7 +14,7 @@ retrieve_point(moduli, point.id)
 \value{
 A Seurat object with the PCA analysis associated to the point in the
 \code{reductions} slot and the average quantile-normalized expression level of
-each gene cluster in each cell saved in the slot "gene_cliuster_id_exp" of the object's
+each gene cluster in each cell saved in the slot "gene_cluster_id_expr" of the object's
 meta data, where "id" is the id of the associated gene cluster.
 }
 \description{
