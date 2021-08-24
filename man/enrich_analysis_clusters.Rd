@@ -12,9 +12,12 @@ enrich_analysis_clusters(moduli, thld = 0.05)
 \item{thld}{Significance threshold}
 }
 \value{
-A moduli object with diffentially expressed gene clusters and associated p-values
-saved in the \code{analysis.clusters$exp.gene.clusters} and \code{analysis.clusters$enrichment.p.vals}
-respectively, ordered by of significance.
+A moduli object with diffentially expressed gene clusters
+and associated p-values saved in the \code{analysis.clusters$exp.gene.clusters} and 
+\code{analysis.clusters$exp.p.vals} respectively, ordered by of significance.
+Differentially suppressed gene clusters and associated p-values are also computed
+and saved to \code{analysis.clusters$sup.gene.clusters} and \code{analysis.clusters$sup.p.vals}
+respectively.
 }
 \description{
 Applies Fisher's exact test to find differentially expressed gene clusters in

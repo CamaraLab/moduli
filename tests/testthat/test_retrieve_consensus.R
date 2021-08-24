@@ -26,7 +26,7 @@ test_that("Consesus metric is correct", {
   }
   
   R.result <- consensus_metric_R(pbmc_small_moduli, pts)
-  result <- retrieve_consesus(pbmc_small_moduli, point.ids = pts, verbose = F)
+  result <- retrieve_consensus(pbmc_small_moduli, point.ids = pts, verbose = F)
   expect_equal(result, R.result, ignore_attr = T)
   
   

@@ -56,9 +56,12 @@ cluster_moduli_space <- function(moduli, algoritm = c("Louvain", "Leiden"), ...,
 #' 
 #' @param moduli A moduli object with analysis clusters save to the \code{analysis.clusters} slot
 #' @param thld Significance threshold
-#' @return A moduli object with diffentially expressed gene clusters and associated p-values
-#' saved in the \code{analysis.clusters$exp.gene.clusters} and \code{analysis.clusters$enrichment.p.vals}
-#' respectively, ordered by of significance.
+#' @return A moduli object with diffentially expressed gene clusters
+#' and associated p-values saved in the \code{analysis.clusters$exp.gene.clusters} and 
+#' \code{analysis.clusters$exp.p.vals} respectively, ordered by of significance.
+#' Differentially suppressed gene clusters and associated p-values are also computed
+#' and saved to \code{analysis.clusters$sup.gene.clusters} and \code{analysis.clusters$sup.p.vals}
+#' respectively.
 #' 
 #' @examples
 #' data("pbmc_small_moduli")
@@ -77,7 +80,11 @@ enrich_analysis_clusters <- function(moduli, thld = 0.05){
   
   
   exp.gene.clusters <- NULL
-  enrichment.p.vals <- NULL
+  exp.p.vals <- NULL
+  
+  sup.gene.clusters <- NULL
+  sup.p.vals <- NULL
+  
   for(i in 1:nrow(moduli$analysis.clusters)){
     
     # counts of occurrences of gene clusters in the analysis cluster
@@ -88,7 +95,8 @@ enrich_analysis_clusters <- function(moduli, thld = 0.05){
     g.clt.counts[ord[ord %in% names(tab)]] <- tab
     
     a.clt.size <- length(moduli$analysis.clusters$points[[i]])
-    p.vals <- numeric(nrow(moduli$gene.clusters))
+    r.p.vals <- numeric(nrow(moduli$gene.clusters))
+    l.p.vals <- numeric(nrow(moduli$gene.clusters))
     
     for(j in 1:nrow(moduli$gene.clusters)){
       # table         g.clst in pt
@@ -99,17 +107,30 @@ enrich_analysis_clusters <- function(moduli, thld = 0.05){
         c(g.clt.counts[j]                  , a.clt.size - g.clt.counts[j]),
         c(g.clt.totals[j] - g.clt.counts[j], nrow(moduli$points) - g.clt.totals[j] - a.clt.size + g.clt.counts[j])
       )
-      p.vals[j] <- fisher.test(cont.table, alternative = "greater")$p.value
+      r.p.vals[j] <- fisher.test(cont.table, alternative = "greater")$p.value
+      l.p.vals[j] <- fisher.test(cont.table, alternative = "less")$p.value
     }
-    p.vals <- p.adjust(p.vals, method = "BH")
-    exp.gene.clusters[[i]] <- moduli$gene.clusters$id[p.vals < thld]
-    enrichment.p.vals[[i]] <- p.vals[p.vals < thld]
+    r.p.vals <- p.adjust(r.p.vals, method = "BH")
+    exp.gene.clusters[[i]] <- moduli$gene.clusters$id[r.p.vals < thld]
+    exp.p.vals[[i]] <- r.p.vals[r.p.vals < thld]
+    
+    l.p.vals <- p.adjust(l.p.vals, method = "BH")
+    sup.gene.clusters[[i]] <- moduli$gene.clusters$id[l.p.vals < thld]
+    sup.p.vals[[i]] <- l.p.vals[l.p.vals < thld]
+    
     # ordering by p-value
-    exp.gene.clusters[[i]] <- exp.gene.clusters[[i]][order(enrichment.p.vals[[i]])]
-    enrichment.p.vals[[i]] <- sort(enrichment.p.vals[[i]])
+    exp.gene.clusters[[i]] <- exp.gene.clusters[[i]][order(exp.p.vals[[i]])]
+    exp.p.vals[[i]] <- sort(exp.p.vals[[i]])
+    
+    sup.gene.clusters[[i]] <- sup.gene.clusters[[i]][order(sup.p.vals[[i]])]
+    sup.p.vals[[i]] <- sort(sup.p.vals[[i]])
   }
   moduli$analysis.clusters$exp.gene.clusters <- exp.gene.clusters
-  moduli$analysis.clusters$enrichment.p.vals <- enrichment.p.vals
+  moduli$analysis.clusters$exp.p.vals <- exp.p.vals
+  
+  moduli$analysis.clusters$sup.gene.clusters <- sup.gene.clusters
+  moduli$analysis.clusters$sup.p.vals <- sup.p.vals
+  
   return(moduli)
 }
 
@@ -130,7 +151,9 @@ analysis_cluster_metadata <- function(moduli){
   out <- data.frame(id = moduli$analysis.clusters$id)
   out$size <- sapply(moduli$analysis.clusters$points, length)
   out$exp.gene.clusters <- moduli$analysis.clusters$exp.gene.clusters
-  out$enrichment.p.vals <- moduli$analysis.clusters$enrichment.p.vals
+  out$exp.p.vals <- moduli$analysis.clusters$exp.p.vals
+  out$sup.gene.clusters <- moduli$analysis.clusters$sup.gene.clusters
+  out$sup.p.vals <- moduli$analysis.clusters$sup.p.vals
   return(out)
 }
 
