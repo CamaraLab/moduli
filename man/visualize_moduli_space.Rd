@@ -8,6 +8,7 @@ visualize_moduli_space(
   moduli,
   mark.points = NULL,
   color.clusters = NULL,
+  color.cluster.groups = NULL,
   title = "UMAP plot of moduli space"
 )
 }
@@ -20,7 +21,10 @@ Default value is NULL}
 \item{color.clusters}{Vector with ids of analysis clusters to be colored, can only color 12 clusters. If NULL
 the first 12 analysis clusters are colored. Default value is NULL}
 
-\item{title}{Title of plot, dafault value is "UMAP plot of moduli space"}
+\item{color.cluster.groups}{Vector with ids of analysis cluster groups to be colored, can only color 12 cluster groups.
+Only of color.clusters or color.cluster.groups can be not NULL. Deafult value is NULL.}
+
+\item{title}{Title of plot, default value is "UMAP plot of moduli space"}
 }
 \value{
 A plotly visualization. Hover text contains metadata about points. If analysis clusters are

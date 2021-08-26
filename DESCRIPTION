@@ -13,6 +13,7 @@ Imports:
     bigmemory,
     cluster,
     dbscan,
+    dendextend,
     doParallel,
     foreach,
     gprofiler2,

@@ -72,12 +72,21 @@ cluster_moduli_space <- function(moduli, algoritm = c("Louvain", "Leiden"), ...,
 #' 
 #' @export
 enrich_analysis_clusters <- function(moduli, thld = 0.05){
+  
+  moduli$analysis.clusters <- cbind(
+    moduli$analysis.clusters,
+    .find_expr(moduli, moduli$analysis.clusters$points, thld)
+  )
+  return(moduli)
+}
+
+# finds expressed and suppressed gene clusters
+.find_expr <- function(moduli, a.clstr, thld){
   # total occurrence of each gene cluster
   g.clt.totals <- integer(nrow(moduli$gene.clusters))
   tab <- table(unlist(moduli$points$clusters))
-  ord <- order(moduli$gene.clusters$id)
-  g.clt.totals[ord[ord %in% names(tab)]] <- tab
-  
+  g.clt.totals[match(names(tab), moduli$gene.clusters$id)] <- tab
+
   
   exp.gene.clusters <- NULL
   exp.p.vals <- NULL
@@ -85,16 +94,16 @@ enrich_analysis_clusters <- function(moduli, thld = 0.05){
   sup.gene.clusters <- NULL
   sup.p.vals <- NULL
   
-  for(i in 1:nrow(moduli$analysis.clusters)){
+  for(i in 1:length(a.clstr)){
     
     # counts of occurrences of gene clusters in the analysis cluster
     g.clt.counts <- integer(nrow(moduli$gene.clusters))
     tab <- table(
-      unlist(moduli$points$clusters[moduli$points$id %in% moduli$analysis.clusters$points[[i]]])
+      unlist(moduli$points$clusters[moduli$points$id %in% a.clstr[[i]]])
     )
-    g.clt.counts[ord[ord %in% names(tab)]] <- tab
+    g.clt.counts[match(names(tab), moduli$gene.clusters$id)] <- tab
     
-    a.clt.size <- length(moduli$analysis.clusters$points[[i]])
+    a.clt.size <- length(a.clstr[[i]])
     r.p.vals <- numeric(nrow(moduli$gene.clusters))
     l.p.vals <- numeric(nrow(moduli$gene.clusters))
     
@@ -125,14 +134,14 @@ enrich_analysis_clusters <- function(moduli, thld = 0.05){
     sup.gene.clusters[[i]] <- sup.gene.clusters[[i]][order(sup.p.vals[[i]])]
     sup.p.vals[[i]] <- sort(sup.p.vals[[i]])
   }
-  moduli$analysis.clusters$exp.gene.clusters <- exp.gene.clusters
-  moduli$analysis.clusters$exp.p.vals <- exp.p.vals
   
-  moduli$analysis.clusters$sup.gene.clusters <- sup.gene.clusters
-  moduli$analysis.clusters$sup.p.vals <- sup.p.vals
-  
-  return(moduli)
+  out <- data.frame(exp.gene.clusters = I(exp.gene.clusters))
+  out$exp.p.vals <- exp.p.vals
+  out$sup.gene.clusters <- sup.gene.clusters
+  out$sup.p.vals <- sup.p.vals
+  return(out)
 }
+
 
 #' Retrieved analysis cluster metadata
 #' 
@@ -156,6 +165,8 @@ analysis_cluster_metadata <- function(moduli){
   out$sup.p.vals <- moduli$analysis.clusters$sup.p.vals
   return(out)
 }
+
+
 
 
 

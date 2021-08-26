@@ -32,7 +32,9 @@ run_umap_moduli <- function(moduli, n_neighbors = 15, ..., seed = 123){
 #' Default value is NULL
 #' @param color.clusters Vector with ids of analysis clusters to be colored, can only color 12 clusters. If NULL
 #' the first 12 analysis clusters are colored. Default value is NULL
-#' @param title Title of plot, dafault value is "UMAP plot of moduli space"
+#' @param color.cluster.groups Vector with ids of analysis cluster groups to be colored, can only color 12 cluster groups.
+#' Only of color.clusters or color.cluster.groups can be not NULL. Deafult value is NULL.
+#' @param title Title of plot, default value is "UMAP plot of moduli space"
 #' 
 #' @return A plotly visualization. Hover text contains metadata about points. If analysis clusters are
 #' enriched, differentially expressed gene clusters are marked with an asterisk.
@@ -50,12 +52,16 @@ run_umap_moduli <- function(moduli, n_neighbors = 15, ..., seed = 123){
 #' 
 #' @export
 visualize_moduli_space <- function(moduli, mark.points = NULL, color.clusters = NULL,
+                                   color.cluster.groups = NULL,
                                    title = "UMAP plot of moduli space"){
   if(is.null(moduli$moduli.umap)){
     stop("Error: Use run_umap_moduli before plotting")
   }
+  if(!is.null(color.clusters) && !is.null(color.cluster.groups)){
+    stop("Error: Only of color.clusters or color.cluster.groups can be not NULL")
+  }
   
-  if(!is.null(moduli$analysis.clusters) &&  is.null(color.clusters)){
+  if(!is.null(moduli$analysis.clusters) &&  is.null(color.clusters) && is.null(color.cluster.groups)){
     color.clusters <- sort(moduli$analysis.clusters$id)
     if(length(color.clusters) > 12) color.clusters <- color.clusters[1:12]
   }
@@ -65,28 +71,47 @@ visualize_moduli_space <- function(moduli, mark.points = NULL, color.clusters = 
     color.clusters <- color.clusters[1:12]
   }
   
+  if(!is.null(color.cluster.groups) && length(color.cluster.groups) > 12){
+    warning("Only the first 12 elements of color.cluster.groups will be colored")
+    color.cluster.groups <- color.cluster.groups[1:12]
+  }
+  
   data = data.frame(
     UMAP_1 = moduli$moduli.umap[,1],
     UMAP_2 = moduli$moduli.umap[,2]
   )
-  # setting up factors
+  # setting up marcation factors
   if(!is.null(mark.points)){
     mark.legend <- c("marked", "unmarked")
     mark.factors <- ifelse(moduli$points$id %in% mark.points, mark.legend[1], mark.legend[2])
     data$mark.factors <- factor(mark.factors, levels = mark.legend)
   }
+  
+  # setting up color factors
   if(!is.null(moduli$analysis.clusters)){
-    partition.factors <- character(nrow(moduli$points))
-    point.memberships <- integer(nrow(moduli$points))
-    for(i in 1:nrow(moduli$analysis.clusters)){
-      point.memberships[moduli$points$id %in% moduli$analysis.clusters$points[[i]]] <- moduli$analysis.clusters$id[i] 
-    }
-    partition.factors[!(point.memberships %in% color.clusters)] <- "others"
-    for(p in color.clusters){
-      partition.factors[point.memberships == p] <- paste("analysis cluster", p)
-    }
-    data$partition <- factor(partition.factors, levels = c(paste("analysis cluster", color.clusters), "others") )
+    membership <- point_metadata(moduli)$analysis.cluster
   }
+  if(!is.null(color.clusters)){
+    partition.factors <- character(nrow(moduli$points))
+    partition.factors[!(membership %in% color.clusters)] <- "others"
+    for(p in color.clusters){
+      partition.factors[membership == p] <- paste("analysis cluster", p)
+    }
+    data$partition <- factor(partition.factors,
+                             levels = c(paste("analysis cluster", color.clusters), "others"))
+  }
+  if(!is.null(color.cluster.groups)){
+    partition.factors <- character(nrow(moduli$points))
+    clst.grps <- get_analysis_cluster_groups(moduli)
+    for(cg in color.cluster.groups){
+      clusters <- clst.grps$clusters[[cg]]
+      partition.factors[membership %in% clusters] <- paste("cluster group", cg)
+    }
+    partition.factors[partition.factors == ""] <- "others"
+    data$partition <- factor(partition.factors,
+                             levels = c(paste("cluster group", color.cluster.groups), "others"))
+  }
+  
   
   # setting up hover text  
   gene.cluster.info <- sapply(moduli$points$clusters, function(pt) paste(sort(pt), collapse = " "))
@@ -105,19 +130,19 @@ visualize_moduli_space <- function(moduli, mark.points = NULL, color.clusters = 
   }
  
   txt <- paste("point id:", moduli$points$id, "<br>gene clusters:", gene.cluster.info)
-  if(!is.null(moduli$analysis.clusters)) txt <- paste0(txt,"<br>analysis cluster: ", point.memberships)
+  if(!is.null(moduli$analysis.clusters)) txt <- paste0(txt,"<br>analysis cluster: ", membership)
   
   # colors
-  if(length(color.clusters) >= 3){
+  if(length(color.clusters) + length(color.cluster.groups) >= 3){
     cols <- c(RColorBrewer::brewer.pal(n = max(length(color.clusters)), name = "Paired"), "black")
   }
-  if(length(color.clusters) == 2){
+  if(length(color.clusters) + length(color.cluster.groups) == 2){
     cols <- c("red", "blue" , "black")
   }
-  if(length(color.clusters) == 1){
+  if(length(color.clusters) + length(color.cluster.groups) == 1){
     cols <- c("red", "black")
   }
-  if(length(color.clusters) == 0){
+  if(length(color.clusters) + length(color.cluster.groups) == 0){
     cols <- I("black")
   }
   
