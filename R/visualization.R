@@ -134,7 +134,8 @@ visualize_moduli_space <- function(moduli, mark.points = NULL, color.clusters = 
   
   # colors
   if(length(color.clusters) + length(color.cluster.groups) >= 3){
-    cols <- c(RColorBrewer::brewer.pal(n = max(length(color.clusters)), name = "Paired"), "black")
+    cols <- RColorBrewer::brewer.pal(n = length(color.clusters) + length(color.cluster.groups), name = "Paired")
+    cols <- c(cols , "black")
   }
   if(length(color.clusters) + length(color.cluster.groups) == 2){
     cols <- c("red", "blue" , "black")
