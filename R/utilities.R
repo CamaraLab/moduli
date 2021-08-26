@@ -272,6 +272,52 @@ retrieve_consensus <- function(moduli, point.ids = NULL, analysis.cluster.ids = 
   return(as.dist(consensus.metric.matrix))
 }
 
+#' Retrieves medioids of sets of points
+#' 
+#' Finds the medioids of a collection of sets of points or of a collection of 
+#' analysis clusters.
+#' 
+#' @param moduli A moduli object
+#' @param point.sets Sets of points as a list of integer vectors with point ids
+#' @param analysis.clusters A collection of analysis clusters as an integer vector with ids
+#' @return A vector with ids of medioids
+#'
+#' @examples
+#' data("pbmc_small_moduli")
+#' 
+#' # clustering is not necessary, but it shows an application
+#' pbmc_small_moduli <- get_snn(pbmc_small_moduli, 4)
+#' pbmc_small_moduli <- cluster_moduli_space(pbmc_small_moduli)
+#' 
+#' # retrieving medioids of all analysis clusters
+#' a.clst.ids <- analysis_cluster_metadata(pbmc_small_moduli)$id
+#' medioids <- get_medioids(pbmc_small_moduli, analysis.clusters = a.clst.ids)
+#' 
+#' 
+#' @export
+get_medioids <- function(moduli, point.sets = NULL, analysis.clusters = NULL){
+  if(is.null(point.sets) + is.null(analysis.clusters) != 1){
+    stop("Error: give exactly one argument, point.clusters or analysis.clusters.")
+  }
+  
+  if(is.null(point.sets)){
+    pos <- match(analysis.clusters, moduli$analysis.clusters$id)
+    point.sets <- moduli$analysis.clusters$points[pos]
+  }
+  metric <- as.matrix(moduli$metric)
+  medioids <- integer(length(point.sets))
+  
+  for(i in seq_along(point.sets)){
+    pos <- match(point.sets[[i]], moduli$points$id)
+    restr.m <- metric[pos, pos]
+    dist.sum <- colSums(restr.m)
+    medioids[i] <- point.sets[[i]][which.min(dist.sum)]
+  }
+  
+  return(medioids)
+}
+
+
 # Runs PCA and scales result depending on the embedding metric that will be used 
 # (a translation and homotety for "euclidean" and a projection to the sphere if "cosine")
 
