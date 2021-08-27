@@ -129,8 +129,11 @@ visualize_moduli_space <- function(moduli, mark.points = NULL, color.clusters = 
     }
   }
  
-  txt <- paste("point id:", moduli$points$id, "<br>gene clusters:", gene.cluster.info)
+  txt <- paste0("point id: ", moduli$points$id)
+  if(!is.null(mark.points)) txt <- paste0(txt, ifelse(data$mark.factors == mark.legend[1]," (x)", ""))
+  txt <- paste0(txt,"<br>gene clusters: ", gene.cluster.info)
   if(!is.null(moduli$analysis.clusters)) txt <- paste0(txt,"<br>analysis cluster: ", membership)
+  data$txt <- txt
   
   # colors
   if(length(color.clusters) + length(color.cluster.groups) >= 3){
@@ -144,9 +147,9 @@ visualize_moduli_space <- function(moduli, mark.points = NULL, color.clusters = 
     cols <- c("red", "black")
   }
   if(length(color.clusters) + length(color.cluster.groups) == 0){
-    cols <- I("black")
+    cols <- "black"
   }
-  
+  alpha <- 0.5
   
   if(is.null(mark.points) && is.null(moduli$analysis.clusters)){
     plt <- plotly::plot_ly(
@@ -155,22 +158,29 @@ visualize_moduli_space <- function(moduli, mark.points = NULL, color.clusters = 
       y = ~UMAP_2,
       type = "scatter",
       mode = "markers",
-      color = I("black"),
+      color = I(cols),
+      marker = list(opacity = alpha),
       text = ~txt,
       hoverinfo = "text"
     )
   }
   
   if(!is.null(mark.points) && is.null(moduli$analysis.clusters)){
+    marker <- list(
+      size = ifelse(data$mark.factors == mark.legend[1], 12, 6),
+      opacity = ifelse(data$mark.factors == mark.legend[1], 1, 0.25)
+    )
+    
     plt <- plotly::plot_ly(
       data = data,
       x = ~UMAP_1,
       y = ~UMAP_2,
       type = "scatter",
       mode = "markers",
-      color = I("black"),
       symbol = ~mark.factors,
       symbols = c("x", "o"),
+      color = I(cols),
+      marker = marker,
       text = ~txt,
       hoverinfo = "text"
     )
@@ -185,6 +195,7 @@ visualize_moduli_space <- function(moduli, mark.points = NULL, color.clusters = 
       mode = "markers",
       color = ~partition,
       colors = cols,
+      marker = list(opacity = alpha),
       text = ~txt,
       hoverinfo = "text"
     )
@@ -197,6 +208,7 @@ visualize_moduli_space <- function(moduli, mark.points = NULL, color.clusters = 
       y = ~UMAP_2,
       type = "scatter",
       mode = "markers",
+      size = ifelse(data$mark.factors == mark.legend[1], 12, 6),
       color = ~partition,
       colors = cols,
       symbol = ~mark.factors,
@@ -209,8 +221,6 @@ visualize_moduli_space <- function(moduli, mark.points = NULL, color.clusters = 
   plt <- plotly::layout(plt, title = title)
   return(plt)
 }
-
-
 
 #' Runs UMAP on gene space
 #' 
@@ -262,6 +272,7 @@ run_umap_genes <- function(moduli, metric = NULL, n_neighbors = 15, ..., seed = 
 #' @param mark.genes Integer vector with names of genes to mark with "x", all points are marked with a circle if NULL.
 #' Default value is NULL
 #' @param ignore.case Whether to ignore case for genes given to mark.genes, default value is FALSE
+#' @param n.terms Number of name terms to print. Only has an effect if gene clusters are annotated. Default value is 1.
 #' @param title Title of plot, default value is "UMAP plot of gene space"
 #' 
 #' @return A plotly visualization. Hover text contains about genes and gene clusters.
@@ -274,7 +285,7 @@ run_umap_genes <- function(moduli, metric = NULL, n_neighbors = 15, ..., seed = 
 #' 
 #' @export
 visualize_gene_space <- function(moduli, color.clusters = NULL, mark.genes = NULL,
-                                 ignore.case = F, title = "UMAP plot of gene space"){
+                                 ignore.case = F, n.terms = 1, title = "UMAP plot of gene space"){
   if(is.null(moduli$gene.umap)){
     stop("Error: Use run_umap_gene before plotting")
   }
@@ -319,25 +330,36 @@ visualize_gene_space <- function(moduli, color.clusters = NULL, mark.genes = NUL
   data$partition <- factor(partition.factors, levels = c(paste("gene cluster", color.clusters), "others"))
   
   # setting up hover text
+  
+  txt <- gene.names
+  if(!is.null(mark.genes)){
+    txt <- paste0(txt, ifelse(data$mark.factors == mark.legend[1]," (x)", ""))
+  }
   txt <- paste0(gene.names, "<br>gene cluster: ", membership)
   # add laplacian scores
   if(!is.null(moduli$gene.cluster$laplacian.score)){
     ls <- numeric(length(membership))
+    lr <- integer(length(membership))
     for(i in 1:nrow(moduli$gene.clusters)){
       ls[membership == moduli$gene.clusters$id[i]] <- moduli$gene.cluster$laplacian.score[i]
+      lr[membership == moduli$gene.clusters$id[i]] <- moduli$gene.cluster$rank[i]
     }
-    txt <- paste0(txt, "<br>cluster laplacian score: ", ls)
+    txt <- paste0(txt, "<br>cluster laplacian score: ", signif(ls, 3), " (", lr, ")" )
   }
-  # add top term name
+  # add top terms name
   if(!is.null(moduli$gene.cluster$term.names)){
     tn <- character(length(membership))
     for(i in 1:nrow(moduli$gene.clusters)){
       if(length(moduli$gene.cluster$term.names[[i]]) > 0){
-        tn[membership == moduli$gene.clusters$id[i]] <- moduli$gene.cluster$term.names[[i]][1]
+        tn[membership == moduli$gene.clusters$id[i]] <- paste0(
+          moduli$gene.cluster$term.names[[i]][1:n.terms],
+          collapse = ",<br>-"
+        )
       }
     }
-    txt <- paste0(txt, "<br>cluster top term: ", tn)
+    txt <- paste0(txt, "<br>cluster terms:<br>-", tn)
   }
+  data$txt <- txt
   
   # colors
   if(length(color.clusters) >= 3){
@@ -361,6 +383,7 @@ visualize_gene_space <- function(moduli, color.clusters = NULL, mark.genes = NUL
       y = ~UMAP_2,
       type = "scatter",
       mode = "markers",
+      marker = list(opacity = 0.5),
       color = ~partition,
       colors = cols,
       text = ~txt,
@@ -373,6 +396,7 @@ visualize_gene_space <- function(moduli, color.clusters = NULL, mark.genes = NUL
       y = ~UMAP_2,
       type = "scatter",
       mode = "markers",
+      size = ifelse(data$mark.factors == mark.legend[1], 12, 6),
       color = ~partition,
       colors = cols,
       symbol = ~mark.factors,

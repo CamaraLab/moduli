@@ -9,6 +9,7 @@ visualize_gene_space(
   color.clusters = NULL,
   mark.genes = NULL,
   ignore.case = F,
+  n.terms = 1,
   title = "UMAP plot of gene space"
 )
 }
@@ -22,6 +23,8 @@ the first 12 gene clusters are colored. Default value is NULL}
 Default value is NULL}
 
 \item{ignore.case}{Whether to ignore case for genes given to mark.genes, default value is FALSE}
+
+\item{n.terms}{Number of name terms to print. Only has an effect if gene clusters are annotated. Default value is 1.}
 
 \item{title}{Title of plot, default value is "UMAP plot of gene space"}
 }
