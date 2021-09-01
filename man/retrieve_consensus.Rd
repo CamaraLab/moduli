@@ -11,7 +11,7 @@ retrieve_consensus(
   desc.file = NULL,
   n.cores = 1,
   seed = 42,
-  filebacked = F,
+  filebacked = T,
   persist = F,
   verbose = T
 )
@@ -32,7 +32,7 @@ default value is NULL. The user must give either point ids or cluster analysis i
 \item{seed}{Random seed to use, default value is 42}
 
 \item{filebacked}{Use a filebacked bigmatrix to store embeddings, only has an effect if
-\code{desc.file} is NULL. Default value is FALSE}
+\code{desc.file} is NULL. Default value is TRUE}
 
 \item{persist}{Keep bigmatrix with embeddings, only has effect if \code{filebacked} is TRUE.
 Default value is FALSE}

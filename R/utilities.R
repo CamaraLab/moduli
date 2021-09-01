@@ -150,7 +150,7 @@ retrieve_point <- function(moduli, point.id){
 #' @param n.cores Numbers of cores to use, default value is 1
 #' @param seed Random seed to use, default value is 42
 #' @param filebacked Use a filebacked bigmatrix to store embeddings, only has an effect if
-#' \code{desc.file} is NULL. Default value is FALSE
+#' \code{desc.file} is NULL. Default value is TRUE
 #' @param persist Keep bigmatrix with embeddings, only has effect if \code{filebacked} is TRUE.
 #' Default value is FALSE
 #' @param verbose Print time stamps, default value is TRUE
@@ -174,7 +174,7 @@ retrieve_point <- function(moduli, point.id){
 #' @export
 retrieve_consensus <- function(moduli, point.ids = NULL, analysis.cluster.ids = NULL,
                               desc.file = NULL, n.cores = 1, seed = 42,
-                              filebacked = F, persist = F, verbose = T){
+                              filebacked = T, persist = F, verbose = T){
   
   if(sum(c(is.null(point.ids), is.null(analysis.cluster.ids))) != 1){
     stop("Error: please give exatcly one, a set of point ids or a set of analysis cluster ids")
