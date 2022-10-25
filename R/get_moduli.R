@@ -175,6 +175,7 @@ get_moduli <- function(seuratObject, gene.membership = NULL, gene.clusters = NUL
         d <- dist(cell.embeddings)
       } else if(emb.metric == "cosine"){
         temp <- cell.embeddings %*% t(cell.embeddings)
+        temp[temp>1] <- 1
         temp <- temp[lower.tri(temp)]
         d <- c(acos(temp))
       }
