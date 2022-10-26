@@ -79,7 +79,8 @@ std::vector<double> compute_emb_dist(double* emb, std::vector<std::vector<int>> 
         }
       }
     }
-    for(int i = 0; i < dist.size(); i++) dist[i] = std::acos(dist[i]);
+    //dist.at((find(dist.begin(), dist.end(), )) - dist.begin()) = 1;
+    for(int i = 0; i < dist.size(); i++) dist[i] = std::acos(std::min(1.0,dist[i]));
   }
   return dist;
 }
